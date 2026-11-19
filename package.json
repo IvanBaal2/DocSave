@@ -19,7 +19,10 @@
     "icons": "node scripts/generate-icons.js",
     "build:android": "eas build -p android --profile production",
     "build:ios": "eas build -p ios --profile production",
-    "build:dev": "eas build --profile development"
+    "build:dev": "eas build --profile development",
+    "legal:pages": "node scripts/build-legal-pages.mjs",
+    "submit:android": "eas submit -p android --profile production",
+    "submit:ios": "eas submit -p ios --profile production"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

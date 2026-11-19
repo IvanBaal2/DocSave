@@ -36,24 +36,25 @@ function chunk(type, data) {
   return Buffer.concat([len, td, crc]);
 }
 
-function png(size, pixel) {
-  const raw = Buffer.alloc((size * 4 + 1) * size);
-  for (let y = 0; y < size; y++) {
-    raw[y * (size * 4 + 1)] = 0;
-    for (let x = 0; x < size; x++) {
+function png(size, pixel, height = size) {
+  const w = size;
+  const raw = Buffer.alloc((w * 4 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    raw[y * (w * 4 + 1)] = 0;
+    for (let x = 0; x < w; x++) {
       // 2x2 supersampling for smooth edges
       let r = 0, g = 0, b = 0, a = 0;
       for (const [ox, oy] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
-        const p = pixel((x + ox) / size, (y + oy) / size);
+        const p = pixel((x + ox) / w, (y + oy) / height);
         r += p[0]; g += p[1]; b += p[2]; a += p[3];
       }
-      const o = y * (size * 4 + 1) + 1 + x * 4;
+      const o = y * (w * 4 + 1) + 1 + x * 4;
       raw[o] = r / 4; raw[o + 1] = g / 4; raw[o + 2] = b / 4; raw[o + 3] = a / 4;
     }
   }
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
-  ihdr.writeUInt32BE(size, 4);
+  ihdr.writeUInt32BE(height, 4);
   ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -106,4 +107,20 @@ fs.writeFileSync(path.join(out, 'adaptive-icon.png'), png(1024, makePixel({ back
 fs.writeFileSync(path.join(out, 'splash.png'), png(1024, makePixel({ background: false, w: 0.16 })));
 fs.writeFileSync(path.join(out, 'notification-icon.png'), png(96, (x, y) =>
   inShield(x, y, 0.3) && !inKeyhole(x, y, 0.3) ? [255, 255, 255, 255] : [0, 0, 0, 0]));
-console.log('Icons written to assets/');
+// Store assets: Play icon 512x512 and Play feature graphic 1024x500.
+fs.mkdirSync(path.join(out, 'store'), { recursive: true });
+fs.writeFileSync(path.join(out, 'store', 'play-icon-512.png'), png(512, makePixel({ background: true, w: 0.27 })));
+const ASPECT = 1024 / 500;
+fs.writeFileSync(
+  path.join(out, 'store', 'play-feature-graphic-1024x500.png'),
+  png(1024, (x, y) => {
+    // map to a square coordinate space centred on the shield
+    const sx = 0.5 + (x - 0.5) * ASPECT;
+    let col = mix(NAVY_2, NAVY, Math.min(1, Math.hypot((x - 0.5) * ASPECT, y - 0.4) * 0.9));
+    const glow = Math.max(0, 1 - Math.hypot((x - 0.5) * ASPECT, y - 0.5) / 0.9);
+    col = mix(col, [10, 60, 45], glow * 0.5);
+    if (inShield(sx, y, 0.26)) col = inKeyhole(sx, y, 0.26) ? NAVY : mix(GREEN_B, GREEN_A, y);
+    return [...col, 255];
+  }, 500),
+);
+console.log('Icons written to assets/ and assets/store/');

@@ -100,7 +100,7 @@ npm start
 
 ### Release builds
 
-Set your own identifiers first: change `BUNDLE_ID` in [app.config.js](app.config.js) (or set `DOCSAVE_BUNDLE_ID`), then:
+The store identifier is `ivanbaal2.docsave.com` (set in [app.config.js](app.config.js); never change it after the first upload).
 
 ```powershell
 npx eas-cli build -p android --profile production
@@ -117,6 +117,8 @@ For iOS, enable the **Data Protection** capability (Complete) on the App ID; EAS
 ---
 
 ## Before publishing
+
+Everything needed for the stores (texts, form answers, review notes, screenshot sizes, checklist) is in [STORE_LISTING.md](STORE_LISTING.md). The public Privacy Policy and Terms pages are generated into `docs/` with `npm run legal:pages` and served by GitHub Pages.
 
 1. **Legal review.** [src/content/legal.ts](src/content/legal.ts) contains complete Terms & Conditions and Privacy Policy drafts that match the implementation. A lawyer must review them for each country you distribute in, and you must replace every `[BRACKETED]` placeholder (publisher, address, contact, governing law). Bump the version when the text changes.
 2. **Store privacy labels.** App Store "Data Not Collected" / Google Play Data safety "No data collected / shared" match this implementation. Re-check them if you add any SDK.

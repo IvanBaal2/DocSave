@@ -11,10 +11,11 @@
 export type LegalSection = { heading: string; body: string[] };
 export type LegalDocument = { title: string; version: string; updated: string; sections: LegalSection[] };
 
-const PUBLISHER = '[PUBLISHER LEGAL NAME]';
-const ADDRESS = '[REGISTERED ADDRESS]';
-const CONTACT = '[CONTACT EMAIL]';
-const JURISDICTION = '[GOVERNING LAW / COUNTRY]';
+export const PUBLISHER = 'Ivan Baal';
+export const ADDRESS = 'Philippines';
+// TODO before publishing: replace with the dedicated Docsave support email.
+export const CONTACT = '[SUPPORT EMAIL]';
+const JURISDICTION = 'the Republic of the Philippines';
 
 export const TERMS: LegalDocument = {
   title: 'Terms & Conditions',
@@ -97,7 +98,7 @@ export const TERMS: LegalDocument = {
     },
     {
       heading: '12. Contact and legal information',
-      body: [`Publisher: ${PUBLISHER}`, `Address: ${ADDRESS}`, `Email: ${CONTACT}`],
+      body: [`Publisher: ${PUBLISHER} (individual developer), ${ADDRESS}`, `Email: ${CONTACT}`],
     },
   ],
 };
@@ -168,7 +169,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'Your privacy rights',
       body: [
         'Because the publisher does not process your personal data, there is no data held by us to access, correct, export or delete. You remain in full control: you can view, rename and delete documents at any time, delete all documents, or permanently destroy the vault from Settings. Uninstalling the app also removes the vault.',
-        'Depending on where you live (for example under the GDPR, UK GDPR or CCPA) you may have additional rights. Contact us with any question.',
+        'Depending on where you live (for example under the Philippine Data Privacy Act of 2012, the GDPR, UK GDPR or CCPA) you may have additional rights. Contact us with any question.',
       ],
     },
     {

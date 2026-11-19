@@ -9,8 +9,9 @@
  */
 const IS_PRODUCTION = process.env.DOCSAVE_PROFILE === 'production';
 
-// Replace with your own reverse-DNS identifier before publishing.
-const BUNDLE_ID = process.env.DOCSAVE_BUNDLE_ID || 'com.docsave.app';
+// Permanent store identifier (Android applicationId / iOS bundle identifier).
+// NEVER change this after the first store upload.
+const BUNDLE_ID = process.env.DOCSAVE_BUNDLE_ID || 'ivanbaal2.docsave.com';
 
 const FACE_ID_TEXT = 'Docsave uses Face ID to unlock your encrypted document vault.';
 const CAMERA_TEXT =
@@ -50,7 +51,9 @@ module.exports = {
     },
     ios: {
       bundleIdentifier: BUNDLE_ID,
-      supportsTablet: true,
+      // iPhone-only listing (iPads still run it in compatibility mode), so no
+      // iPad screenshots are required for App Store review.
+      supportsTablet: false,
       buildNumber: '1',
       // Every file Docsave writes is unreadable while the device is locked.
       entitlements: {
@@ -62,6 +65,10 @@ module.exports = {
         NSPhotoLibraryUsageDescription: PHOTOS_TEXT,
         UIFileSharingEnabled: false,
         LSSupportsOpeningDocumentsInPlace: false,
+        // Docsave only uses standard, OS-provided-class encryption (AES-GCM) to
+        // protect the user's own data, which is exempt from US export
+        // documentation. Confirm this declaration before submitting.
+        ITSAppUsesNonExemptEncryption: false,
       },
       privacyManifests: {
         NSPrivacyTracking: false,

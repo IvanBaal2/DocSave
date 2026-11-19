@@ -100,7 +100,7 @@ First release of Docsave — your private, encrypted document vault.
 
 ## App Store Connect: other
 - **Age rating:** answer "None" to all → 4+
-- **Export compliance:** "Uses encryption" → Yes → "only standard encryption / exempt" (already declared via `ITSAppUsesNonExemptEncryption = false`)
+- **Export compliance:** NOT YET DETERMINED. Docsave uses AES-256-GCM, PBKDF2 and HKDF to protect the user's own data. Whether this qualifies for an exemption (e.g. EAR 740.17(b)(1) / Category 5 Part 2 Note 4) and whether an annual self-classification report is needed must be verified before the first App Store upload — see compliance/EXPORT_COMPLIANCE.md. `ITSAppUsesNonExemptEncryption` is intentionally not set, so App Store Connect will ask.
 - **Sign-in required:** No
 - **Review notes:**
   ```

@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, Text, View } from 'react-native';
 import { Header, Screen, SectionTitle, SettingRow, SettingsGroup } from '../../../src/components/ui';
+import { openPrivacyContact } from '../../../src/content/contact';
 import { useReauth } from '../../../src/security/ReauthProvider';
 import { colors, spacing, type } from '../../../src/theme/theme';
 import { useVault } from '../../../src/vault/VaultContext';
@@ -84,6 +85,13 @@ export default function SettingsHome() {
           subtitle="Previews, notifications privacy, diagnostics"
           onPress={() => router.push('/settings/privacy')}
         />
+        <SettingRow
+          icon="hand-left-outline"
+          title="Your privacy rights"
+          subtitle="Access, correct, export, delete"
+          onPress={() => router.push('/settings/rights')}
+        />
+        <SettingRow icon="mail-outline" title="Contact privacy support" onPress={openPrivacyContact} />
         <SettingRow
           icon="notifications-outline"
           title="Push notifications"

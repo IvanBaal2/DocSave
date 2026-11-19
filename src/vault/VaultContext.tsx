@@ -407,6 +407,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         ...DEFAULT_SETTINGS,
         acceptedTermsVersion: p.termsVersion,
         acceptedPrivacyVersion: p.privacyVersion,
+        acceptedAt: new Date().toISOString(),
       };
       const idx = Store.emptyIndex();
       try {

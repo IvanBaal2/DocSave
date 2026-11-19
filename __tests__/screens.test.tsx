@@ -249,6 +249,8 @@ describe('setup screens', () => {
   test('welcome', async () => {
     await renderScreen(() => require('../app/onboarding/index'));
     expect(screen.getByText('Get started')).toBeTruthy();
+    expect(screen.getByText(/I accept the Terms & Conditions/)).toBeTruthy();
+    expect(screen.getByText(/lost access means my documents cannot be recovered/)).toBeTruthy();
   });
   test('face / fingerprint step', async () => {
     await renderScreen(() => require('../app/onboarding/biometrics'));
@@ -336,6 +338,7 @@ describe('settings screens', () => {
     ['../app/(vault)/settings/security', 'Document protection', { section: 'access' }],
     ['../app/(vault)/settings/change-pin', 'Change PIN', {}],
     ['../app/(vault)/settings/privacy', 'Privacy settings', {}],
+    ['../app/(vault)/settings/rights', 'Your privacy rights', {}],
     ['../app/(vault)/settings/notifications', 'Push notifications', {}],
     ['../app/(vault)/settings/about', 'About Docsave', {}],
     ['../app/(vault)/settings/terms', 'Terms & Conditions', {}],

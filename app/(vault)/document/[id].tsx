@@ -10,6 +10,7 @@ import { describeDocument, withTemplate } from '../../../src/scan/extract';
 import type { DocField } from '../../../src/vault/types';
 import { Button, Chip, IconButton, Notice, TextField, haptic, type IconName } from '../../../src/components/ui';
 import { TamperError, wipe } from '../../../src/crypto/core';
+import { exportPage } from '../../../src/security/exporter';
 import { useReauth } from '../../../src/security/ReauthProvider';
 import { colors, radius, spacing, type } from '../../../src/theme/theme';
 import { allCategories, findCategory, findDocType, findDocTypeAny } from '../../../src/vault/categories';
@@ -123,6 +124,30 @@ export default function DocumentViewer() {
   const cat = findCategory(doc.categoryId, vault.index.customCategories);
   const dt = findDocType(doc.categoryId, doc.docType);
 
+  function confirmExport() {
+    if (!bytes || !page) return;
+    Alert.alert(
+      'Export this page?',
+      'Docsave will create an unencrypted copy so you can save, print or send it. Once it leaves Docsave, that copy is no longer protected by your vault.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Export',
+          onPress: async () => {
+            if (!(await authenticate('Confirm export'))) return;
+            try {
+              await vault.runExternal(() =>
+                exportPage(bytes, `${displayName(doc!.name)} ${doc!.pages.length > 1 ? page.label : ''}`, page.mimeType),
+              );
+            } catch (e) {
+              Alert.alert('Export failed', (e as Error)?.message || 'The page could not be exported.');
+            }
+          },
+        },
+      ],
+    );
+  }
+
   function confirmDelete() {
     Alert.alert('Delete document?', `"${displayName(doc!.name)}" and all its pages will be permanently deleted from this device. This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
@@ -216,6 +241,7 @@ export default function DocumentViewer() {
             onPress={() => setPageIdx((i) => (i + 1) % doc.pages.length)}
           />
         ) : null}
+        <ToolbarButton icon="share-outline" label="Export" onPress={confirmExport} />
         <ToolbarButton icon="trash-outline" label="Delete" danger onPress={confirmDelete} />
       </View>
 

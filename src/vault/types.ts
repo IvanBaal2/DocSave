@@ -91,6 +91,8 @@ export type Settings = {
   diagnosticsEnabled: boolean;
   acceptedTermsVersion: string | null;
   acceptedPrivacyVersion: string | null;
+  /** ISO date-time the Terms were accepted (stored only on this device). */
+  acceptedAt: string | null;
   /** The "how your documents are protected" card was dismissed. */
   protectionInfoSeen: boolean;
 };
@@ -110,6 +112,7 @@ export const DEFAULT_SETTINGS: Settings = {
   diagnosticsEnabled: false,
   acceptedTermsVersion: null,
   acceptedPrivacyVersion: null,
+  acceptedAt: null,
   protectionInfoSeen: false,
 };
 

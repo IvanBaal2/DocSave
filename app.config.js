@@ -59,10 +59,8 @@ module.exports = {
         NSPhotoLibraryUsageDescription: PHOTOS_TEXT,
         UIFileSharingEnabled: false,
         LSSupportsOpeningDocumentsInPlace: false,
-        // Docsave only uses standard, OS-provided-class encryption (AES-GCM) to
-        // protect the user's own data, which is exempt from US export
-        // documentation. Confirm this declaration before submitting.
-        ITSAppUsesNonExemptEncryption: false,
+        // ITSAppUsesNonExemptEncryption is deliberately NOT set: the export-
+        // compliance answer has not been verified yet (compliance/EXPORT_COMPLIANCE.md).
       },
       privacyManifests: {
         NSPrivacyTracking: false,

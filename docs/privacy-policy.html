@@ -23,39 +23,68 @@ ul{color:var(--muted);padding-left:20px}</style></head><body><main>
 <header><img class="mark" src="logo.png" alt="Docsave logo"><div><div class="brand">Doc<span>save</span></div>
 <div class="tag">Your Documents. Your Device. Your Privacy.</div></div></header>
 <h1>Privacy Policy</h1>
-<p class="meta">Version 1.1 · Last updated 19 November 2026</p>
-<h2>Summary</h2>
-<p>Docsave does not collect, receive, store or share your documents or personal data. Everything stays encrypted on your device. We have no servers that could receive it.</p>
-<h2>Documents are stored locally</h2>
-<p>Documents you add, together with their names, notes, categories and expiry dates, are stored only in Docsave’s private storage area on your device.</p>
-<h2>Documents are encrypted on the device</h2>
-<p>Each document is encrypted with AES-256-GCM before being written to storage. The vault index (names, notes, dates) is encrypted the same way. The encryption key never leaves your device and is protected by the Apple Keychain or Android Keystore.</p>
-<p>Docsave does not create unencrypted thumbnails. Documents are decrypted only in memory while you view them.</p>
-<h2>On-device recognition</h2>
-<p>When you scan a document, Docsave recognises its text on your phone to fill in details such as the holder name, document number, dates or flight details. On Android this uses the Google ML Kit text-recognition model that is bundled inside the app; on iPhone it uses Apple’s Vision framework. Both run offline. Images and recognised text are never sent to Docsave, Google, Apple or any other service.</p>
-<p>Recognised details are stored only inside your encrypted vault, together with the scan, and are not added to any system search index.</p>
-<h2>No automatic cloud uploads or backups</h2>
-<p>Docsave never uploads documents. On Android, release builds of Docsave do not even request the Internet permission, so the operating system blocks all network access. Docsave’s data is excluded from iCloud, Google and computer backups and from device-to-device transfers.</p>
-<h2>No account registration</h2>
-<p>Docsave does not ask for your name, email address, phone number or any account details.</p>
-<h2>No sharing with third parties</h2>
-<p>Docsave does not share any document or personal data with third parties. Docsave contains no advertising, no advertising identifiers, no analytics and no third-party tracking SDKs.</p>
-<h2>Diagnostics</h2>
-<p>Diagnostics sharing is turned off by default. If you turn it on, Docsave can generate a short technical report (app version, operating system version, device security check results and the number of stored documents). The report never contains document names or contents and is only sent if you choose to share it yourself via your device’s share menu.</p>
-<h2>How device permissions are used</h2>
-<p>Camera — only to scan the documents you choose to add, including reading boarding-pass barcodes. While you scan, small preview images are analysed in memory to detect the document; every temporary camera file is deleted immediately and the final image is encrypted before it is saved.</p>
-<p>Photos / files — only the specific items you pick are read, encrypted and stored. Temporary copies created by the system picker are deleted.</p>
-<p>Face ID / fingerprint — handled entirely by your operating system. Docsave never receives your biometric data; it only learns whether authentication succeeded.</p>
-<p>Notifications — optional local reminders scheduled on your device. They never contain document names, numbers or contents. No push token is created and nothing is sent to a server.</p>
-<h2>Security limitations</h2>
-<p>No mobile app can fully protect data on a device that is rooted, jailbroken, infected with malware or otherwise compromised. Docsave warns you when it detects signs of such a device, but detection is not guaranteed.</p>
-<p>Anyone who knows your PIN or can pass your biometric check can open your vault.</p>
-<h2>Your privacy rights</h2>
-<p>Because the publisher does not process your personal data, there is no data held by us to access, correct, export or delete. You remain in full control: you can view, rename and delete documents at any time, delete all documents, or permanently destroy the vault from Settings. Uninstalling the app also removes the vault.</p>
-<p>Depending on where you live, data-protection laws may give you additional rights. Questions: u2648454771@id.gle</p>
-<h2>Children</h2>
-<p>Docsave is not directed at children under the age required by your local law to consent to digital services.</p>
-<h2>Changes to this policy</h2>
-<p>If this policy changes, the app will show the new version and ask you to review it.</p>
+<p class="meta">Version 2.0-draft · Last updated 19 November 2026</p>
+<div class="card"><p><strong>Draft — pending legal review.</strong> Items in [brackets] are still to be provided by the publisher.</p></div>
+<h2>1. Who we are</h2>
+<p>Docsave is published by Ivan Baal, [legal status: individual developer, self-employed (autónomo) or company — to be provided by the publisher], [postal address — to be provided by the publisher], [country of establishment — to be provided by the publisher].</p>
+<p>Privacy and support contact: u2648454771@id.gle. Website: https://ivanbaal2.github.io/DocSave/docs/</p>
+<h2>2. What Docsave does</h2>
+<p>Docsave is a personal app for keeping copies of your own documents (for example passports, ID cards, driving licences, tickets, certificates and cards) in an encrypted vault on your phone.</p>
+<h2>3. Summary</h2>
+<p>Your documents are stored only on your device and are encrypted there before they are saved.</p>
+<p>Docsave has no user accounts, no cloud synchronisation and no Docsave servers. The app never sends your documents, their contents or the details read from them to us or to anyone else.</p>
+<p>We do not use advertising, analytics or tracking.</p>
+<h2>4. Information processed on your device</h2>
+<p>Docsave processes, only on your device: the images and files you add; details read from them (such as names, document numbers, dates of birth and expiry, nationality, travel details or card numbers); names, notes, categories and dates you enter; your app settings; an encrypted copy of the vault key protected by your PIN; a counter of failed PIN attempts; the version and date of the Terms and Privacy Policy you accepted; and, if the app closes unexpectedly, a technical error report (no document content) shown to you once at the next start.</p>
+<p>This processing is carried out by the app on your device for you. We, the publisher, do not receive, see or store any of this information.</p>
+<h2>5. Passports, identity documents and other people’s documents</h2>
+<p>Identity documents contain sensitive information such as document numbers and a photo of the holder. Docsave reads text from them on your device; it does not analyse faces and does not use the photo to identify anyone.</p>
+<p>You may store documents of family members or other people only where you are entitled to do so, for example as a parent or guardian, and you are responsible for keeping them confidential.</p>
+<h2>6. Camera</h2>
+<p>The camera is used only when you choose to scan a document or read a barcode. While you scan, small preview images are analysed in the device memory to detect the document; temporary camera files are deleted immediately and the final image is encrypted before it is saved.</p>
+<p>The camera may use the flash automatically for the final photo in low light.</p>
+<h2>7. Photos and files you import</h2>
+<p>Docsave uses your phone’s system photo picker and document picker, so it can read only the items you select. It does not request general access to your photos or storage. Temporary copies made by the system pickers are deleted after encryption.</p>
+<h2>8. Automatic text recognition (OCR)</h2>
+<p>Text recognition runs on your device: on Android it uses the Google ML Kit text-recognition model included in the app; on iPhone it uses Apple’s Vision framework. Images and recognised text are not uploaded.</p>
+<p>On Android, the release version of Docsave does not request the Internet permission, so the operating system prevents the app and its components from connecting to the internet.</p>
+<h2>9. Face and fingerprint unlock</h2>
+<p>If you enable it, your phone’s operating system verifies your face or fingerprint. Docsave never receives, stores or processes your biometric data or templates; it only receives a yes/no result from the system.</p>
+<h2>10. Local storage and encryption</h2>
+<p>Documents and their details are encrypted on your device with AES-256-GCM before being written to the app’s private storage. The encryption key is generated on your device and protected by your PIN and the phone’s secure key store (Android Keystore / Apple Keychain).</p>
+<p>Docsave’s data is excluded from cloud and computer backups and from device-to-device transfers. No security measure is perfect; see section 21.</p>
+<h2>11. Document details (metadata)</h2>
+<p>Names, notes, categories, dates and recognised details are stored in an encrypted index inside the vault. They are searchable only inside the unlocked app and are not added to any system search index.</p>
+<h2>12. Notifications</h2>
+<p>Reminders are optional, created and delivered on your device, and never include document names, numbers or contents. Docsave does not use a push-notification server.</p>
+<h2>13. Diagnostics</h2>
+<p>Docsave contains no analytics or crash-reporting service. If the app closes unexpectedly, a technical error report is kept on your device and shown to you once; it is not sent anywhere.</p>
+<p>If you turn on “Diagnostics sharing” (off by default), you can create a short technical report (app and system version, security-check results and number of documents — never document names or contents) and send it yourself through your phone’s share menu. If you send it to us, we process it as described in section 16.</p>
+<h2>14. Third-party components</h2>
+<p>Docsave is built with open-source components (including React Native and Expo libraries and Mozilla pdf.js) and, on Android, the Google ML Kit text-recognition model. These components run inside the app on your device; Docsave does not give them your data and, on Android, the app cannot connect to the internet. A full list is published in the app’s software bill of materials.</p>
+<h2>15. Sharing your information</h2>
+<p>We do not sell, rent or share your information. A document leaves Docsave only if you choose to export it through your phone’s share menu; from that moment the copy is under your control and no longer protected by Docsave.</p>
+<h2>16. When you contact us</h2>
+<p>If you email us (for support, a privacy request or a diagnostics report), we process your email address and the content of your message to answer you. Legal basis: our legitimate interest in answering your request and, where applicable, our legal obligations (GDPR art. 6(1)(f) and (c)).</p>
+<p>We keep this correspondence only as long as needed to handle your request and any related legal obligation [retention period for support correspondence — to be provided by the publisher]. Our email provider [email provider and transfer safeguards, if outside the EEA — to be provided by the publisher] processes it on our behalf. Never send copies of your documents by email.</p>
+<h2>17. International transfers</h2>
+<p>The app itself does not transfer your information anywhere. Transfers can only occur for emails you send us, as described in section 16.</p>
+<h2>18. How long information is kept</h2>
+<p>Your vault stays on your device until you delete documents, delete all documents, permanently destroy the vault, or uninstall the app. Because there is no backup, deleted information cannot be restored.</p>
+<h2>19. Deleting your information</h2>
+<p>You can delete a single document, delete all documents, or permanently destroy the vault (which erases the encryption keys, making any remaining encrypted data unreadable). Phone storage cannot always be overwritten in place, so deletion is not a forensic erasure, but without the keys the encrypted data cannot be read.</p>
+<h2>20. Your rights</h2>
+<p>Under the GDPR you have rights of access, rectification, erasure, restriction, objection and portability. For information on your device, you exercise them directly in the app (Settings → Your privacy rights): view, edit, export and delete. For information you sent us by email, contact us and we will answer within one month.</p>
+<p>You can complain to a data-protection authority, in Spain the Agencia Española de Protección de Datos (www.aepd.es).</p>
+<h2>21. Security limitations and incidents</h2>
+<p>No app can fully protect information on a device that is rooted, jailbroken or infected with malware, or against someone who knows your PIN. Docsave refuses to unlock when it detects signs of a rooted or jailbroken device, but detection is not guaranteed.</p>
+<p>If we become aware of a security problem in Docsave, we will fix it, inform users through an app update and our website, and notify authorities where the law requires it.</p>
+<h2>22. Children</h2>
+<p>Docsave is not intended for use by children on their own. Parents or guardians may store documents of their children in their own vault.</p>
+<h2>23. Changes to this policy</h2>
+<p>If this policy changes, we will publish the new version on our website and describe the change in the app’s update notes. The version and date you accepted at setup are stored only on your device.</p>
+<h2>24. Effective date and contact</h2>
+<p>Effective date: [effective date (set on publication) — to be provided by the publisher].</p>
+<p>Contact: Ivan Baal, u2648454771@id.gle.</p>
 <nav><a href="index.html">Home</a><a href="privacy-policy.html">Privacy Policy</a><a href="terms.html">Terms &amp; Conditions</a></nav>
 </main></body></html>

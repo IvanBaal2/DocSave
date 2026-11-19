@@ -57,6 +57,7 @@ function legalPage(doc) {
     .join('\n');
   return shell(doc.title, `<h1>${esc(doc.title)}</h1>
 <p class="meta">Version ${esc(doc.version)} · Last updated ${esc(doc.updated)}</p>
+${doc.status === "draft" ? `<div class="card"><p><strong>Draft — pending legal review.</strong> Items in [brackets] are still to be provided by the publisher.</p></div>` : ""}
 ${sections}`);
 }
 

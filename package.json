@@ -1,7 +1,12 @@
 {
   "name": "docsave",
   "version": "1.0.0",
+  "description": "Docsave: a private, offline document vault for Android and iOS. Passports, ID cards, tickets and personal documents are encrypted on-device with AES-256-GCM and protected by PIN and Face ID / fingerprint. No account, no cloud, no tracking.",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IvanBaal2/DocSave.git"
+  },
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start --dev-client",

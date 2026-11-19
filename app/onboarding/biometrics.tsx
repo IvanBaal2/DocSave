@@ -44,7 +44,7 @@ export default function Biometrics() {
         />
       }
     >
-      <Header title="Biometric unlock" right={<StepDots step={6} total={ONBOARDING_STEPS} />} />
+      <Header title="Biometric unlock" right={<StepDots step={2} total={ONBOARDING_STEPS} />} />
       <View style={{ alignItems: 'center' }}>
         <PulseShield size={72} />
         <Text style={[type.bodySecondary, { textAlign: 'center', marginBottom: spacing.lg }]}>

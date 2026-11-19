@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BOTTOM_NAV_HEIGHT, BottomNav } from '../../src/components/BottomNav';
 import { DocumentCard, iconForDocument } from '../../src/components/DocumentCard';
 import { EmptyState, FadeIn, IconButton, LogoMark, SectionTitle, type IconName } from '../../src/components/ui';
 import { colors, gradients, radius, shadow, spacing, type } from '../../src/theme/theme';
@@ -16,7 +15,6 @@ export default function Dashboard() {
   const router = useRouter();
   const vault = useVault();
   const { documents, customCategories } = vault.index;
-  const recent = useMemo(() => [...documents].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6), [documents]);
   const mine = useMemo(() => [...documents].sort((a, b) => a.name.localeCompare(b.name)), [documents]);
   const expiring = useMemo(
     () =>
@@ -33,7 +31,7 @@ export default function Dashboard() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
       <ScrollView
-        contentContainerStyle={{ padding: spacing.xl, paddingTop: spacing.md, paddingBottom: BOTTOM_NAV_HEIGHT + 48 }}
+        contentContainerStyle={{ padding: spacing.xl, paddingTop: spacing.md, paddingBottom: 48 }}
         showsVerticalScrollIndicator={false}
       >
         {/* 1. Brand + 2. compact security indicator */}
@@ -62,7 +60,7 @@ export default function Dashboard() {
           </View>
           <IconButton icon="search" accessibilityLabel="Search documents" onPress={() => router.push('/search')} />
           <View style={{ width: spacing.sm }} />
-          <IconButton icon="lock-closed-outline" accessibilityLabel="Lock vault now" onPress={vault.lock} />
+          <IconButton icon="settings-outline" accessibilityLabel="Settings" onPress={() => router.push('/settings')} />
         </View>
 
         {/* 3. Main action */}
@@ -152,9 +150,10 @@ export default function Dashboard() {
           <View style={styles.infoCard}>
             <Ionicons name="shield-checkmark" size={20} color={colors.primaryBright} />
             <View style={{ flex: 1, marginLeft: spacing.md }}>
-              <Text style={type.h3}>Your documents are protected</Text>
+              <Text style={type.h3}>Saved and encrypted on this phone</Text>
               <Text style={[type.caption, { marginTop: 2 }]}>
-                Encrypted with AES-256 on this phone. Never uploaded, never backed up.
+                Your documents are never uploaded or backed up. Important: Docsave cannot recover them if you forget your
+                PIN, uninstall the app or lose this phone — keep your original documents.
               </Text>
               <View style={{ flexDirection: 'row', marginTop: spacing.sm }}>
                 <Pressable onPress={() => router.push('/settings/protection')} accessibilityRole="button" hitSlop={8}>
@@ -201,39 +200,7 @@ export default function Dashboard() {
             />
           ))
         )}
-
-        {/* 6. Recently added */}
-        {recent.length ? (
-          <>
-            <SectionTitle>Recently Added</SectionTitle>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -spacing.xl }} contentContainerStyle={{ paddingHorizontal: spacing.xl }}>
-              {recent.map((d) => {
-                const cat = findCategory(d.categoryId, customCategories);
-                return (
-                  <Pressable
-                    key={d.id}
-                    onPress={() => router.push({ pathname: '/document/[id]', params: { id: d.id } })}
-                    accessibilityRole="button"
-                    accessibilityLabel={d.name}
-                    style={({ pressed }) => [styles.recent, pressed && { backgroundColor: colors.surfacePressed }]}
-                  >
-                    <View style={[styles.catIcon, { backgroundColor: (cat?.color ?? colors.primary) + '1F' }]}>
-                      <Ionicons name={iconForDocument(d)} size={20} color={cat?.color ?? colors.primaryBright} />
-                    </View>
-                    <Text style={[type.h3, { fontSize: 14, marginTop: spacing.sm }]} numberOfLines={2}>
-                      {d.name}
-                    </Text>
-                    <Text style={[type.caption, { marginTop: 2 }]}>{formatTimestamp(d.createdAt)}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </>
-        ) : null}
       </ScrollView>
-
-      {/* 7. Bottom navigation */}
-      <BottomNav active="home" />
     </SafeAreaView>
   );
 }

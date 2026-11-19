@@ -3,7 +3,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { cropJpeg, isNativeSecurityAvailable, recognizeText } from '../../modules/docsave-security';
+import { cropJpeg, isNativeSecurityAvailable, recognizeBest, recognizeText } from '../../modules/docsave-security';
 import { FRAME_ASPECT, assessSnapshot, screenRectToPhoto, type Rect } from '../scan/capture';
 import { parseBcbp } from '../scan/extract';
 import { deleteTempFile } from '../security/secureTemp';
@@ -28,7 +28,9 @@ function choosePictureSize(sizes: string[]): string | undefined {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const BARCODE_TYPES = ['pdf417', 'aztec', 'qr', 'datamatrix'] as const;
+const BOARDING_BARCODES = ['pdf417', 'aztec', 'qr', 'datamatrix'] as const;
+const WALLET_BARCODES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'code93', 'itf14', 'codabar', 'qr', 'pdf417', 'aztec', 'datamatrix'] as const;
+const WALLET_KINDS = new Set(['loyalty', 'giftcard', 'coupon']);
 
 /**
  * Full-screen guided camera with automatic capture.
@@ -71,6 +73,9 @@ export function GuidedCamera({
   const [slow, setSlow] = useState(false);
   const [ocrProblem, setOcrProblem] = useState<string | null>(null);
   const [pictureSize, setPictureSize] = useState<string | undefined>();
+  const [portrait, setPortrait] = useState(!!docType.portrait);
+  const wallet = WALLET_KINDS.has(docType.kind);
+  const scansBarcodes = docType.kind === 'boarding' || wallet;
   const capturingRef = useRef(false);
   const barcodeRef = useRef<string | undefined>(undefined);
   const pulse = useRef(new Animated.Value(0)).current;
@@ -79,8 +84,9 @@ export function GuidedCamera({
   // Guide frame geometry in screen coordinates.
   const frame: Rect | null = (() => {
     if (!layout) return null;
-    const aspect = FRAME_ASPECT[docType.frame];
-    let w = layout.width * (docType.frame === 'document' ? 0.8 : 0.9);
+    const base = FRAME_ASPECT[docType.frame];
+    const aspect = docType.frame === 'card' && portrait ? 1 / base : base;
+    let w = layout.width * (docType.frame === 'document' || portrait ? 0.78 : 0.9);
     let h = w / aspect;
     const maxH = layout.height * 0.6;
     if (h > maxH) {
@@ -123,7 +129,7 @@ export function GuidedCamera({
       let ocrError: string | undefined;
       if (autoCapture) {
         try {
-          lines = (await recognizeText(base64, 2400)).lines.map((x) => x.text);
+          lines = (await recognizeBest(base64, 2400)).lines.map((x) => x.text);
         } catch (e) {
           ocrError = (e as Error)?.message || 'Text recognition failed';
         }
@@ -187,12 +193,13 @@ export function GuidedCamera({
 
   const onBarcode = useCallback(
     (e: BarcodeScanningResult) => {
-      if (barcodeRef.current || !parseBcbp(e.data)) return;
-      barcodeRef.current = e.data;
-      setHint('Boarding pass barcode read');
+      if (barcodeRef.current) return;
+      if (docType.kind === 'boarding' ? !parseBcbp(e.data) : (e.data ?? '').trim().length < 4) return;
+      barcodeRef.current = e.data.trim();
+      setHint(docType.kind === 'boarding' ? 'Boarding pass barcode read' : 'Barcode read');
       if (autoCapture) captureFull();
     },
-    [autoCapture, captureFull],
+    [autoCapture, captureFull, docType.kind],
   );
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -243,8 +250,10 @@ export function GuidedCamera({
           }
           setCameraReady(true);
         }}
-        barcodeScannerSettings={docType.kind === 'boarding' ? { barcodeTypes: [...BARCODE_TYPES] } : undefined}
-        onBarcodeScanned={docType.kind === 'boarding' ? onBarcode : undefined}
+        barcodeScannerSettings={
+          scansBarcodes ? { barcodeTypes: [...(wallet ? WALLET_BARCODES : BOARDING_BARCODES)] } : undefined
+        }
+        onBarcodeScanned={scansBarcodes ? onBarcode : undefined}
       />
       {frame ? (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -305,9 +314,21 @@ export function GuidedCamera({
             {stepCount > 1 ? ` (${sideIndex + 1}/${stepCount})` : ''}
           </Text>
         </View>
-        <Pressable onPress={() => setTorch((t) => !t)} style={styles.roundBtn} accessibilityRole="button" accessibilityLabel="Toggle flashlight">
-          <Ionicons name={torch ? 'flash' : 'flash-off'} size={22} color="#fff" />
-        </Pressable>
+        <View style={{ flexDirection: 'row' }}>
+          {docType.frame === 'card' ? (
+            <Pressable
+              onPress={() => setPortrait((p) => !p)}
+              style={[styles.roundBtn, { marginRight: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel={portrait ? 'Switch to landscape card' : 'Switch to portrait card'}
+            >
+              <Ionicons name="phone-landscape-outline" size={21} color="#fff" style={{ transform: [{ rotate: portrait ? '90deg' : '0deg' }] }} />
+            </Pressable>
+          ) : null}
+          <Pressable onPress={() => setTorch((t) => !t)} style={styles.roundBtn} accessibilityRole="button" accessibilityLabel="Toggle flashlight">
+            <Ionicons name={torch ? 'flash' : 'flash-off'} size={22} color="#fff" />
+          </Pressable>
+        </View>
       </SafeAreaView>
 
       <SafeAreaView style={styles.bottomBar} edges={['bottom']}>
@@ -387,7 +408,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: colors.primaryBorder,
-    maxWidth: '62%',
+    maxWidth: '50%',
   },
   bottomBar: {
     position: 'absolute',

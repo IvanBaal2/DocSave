@@ -193,10 +193,8 @@ export default function SecuritySettings() {
       <SettingsGroup>
         <SettingRow
           icon="ban-outline"
-          title="Block on compromised devices"
-          subtitle="Refuse to unlock when root / jailbreak indicators are found"
-          toggle={settings.blockOnCompromisedDevice}
-          onToggle={(v) => vault.updateSettings({ blockOnCompromisedDevice: v })}
+          title="Blocked on compromised devices"
+          subtitle="Docsave never unlocks when root / jailbreak indicators are found"
         />
       </SettingsGroup>
         </>

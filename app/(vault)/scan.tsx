@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { isNativeSecurityAvailable, recognizeText } from '../../modules/docsave-security';
+import { isNativeSecurityAvailable, recognizeBest } from '../../modules/docsave-security';
 import { ExpiryField } from '../../src/components/ExpiryField';
 import { FieldEditor } from '../../src/components/FieldEditor';
 import { GuidedCamera, type CapturedSide } from '../../src/components/GuidedCamera';
@@ -39,6 +39,7 @@ export default function ScanDocument() {
   const [keyDate, setKeyDate] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [showText, setShowText] = useState(false);
+  const [showAllFields, setShowAllFields] = useState(false);
   const flip = useRef(new Animated.Value(0)).current;
 
   const requiredSlots = docType.optionalFrom ?? docType.slots.length;
@@ -143,7 +144,7 @@ export default function ScanDocument() {
       let ocrError: string | undefined;
       if (picked.base64 && isNativeSecurityAvailable && picked.mimeType.startsWith('image/')) {
         try {
-          lines = (await recognizeText(picked.base64, 2400)).lines.map((l) => l.text);
+          lines = (await recognizeBest(picked.base64, 2400)).lines.map((l) => l.text);
         } catch (e) {
           ocrError = (e as Error)?.message || 'Text recognition failed';
         }
@@ -182,15 +183,16 @@ export default function ScanDocument() {
         docType: docType.id,
         notes,
         expiryDate: keyDate,
-        fields: fields.filter((f) => f.value.trim() || f.status === 'missing'),
+        fields: fields.filter((f) => f.value.trim()),
         description,
         pages: pages.map(({ label, mimeType, base64, fileUri, size }) => ({ label, mimeType, base64, fileUri, size })),
       });
       setPages([]);
       haptic.success();
       vault.markAuthenticated();
-      router.dismissTo?.('/');
-      router.push({ pathname: '/document/[id]', params: { id: doc.id } });
+      // Return to the dashboard; the new document is listed there.
+      router.dismissTo('/');
+      void doc;
     } catch (e) {
       setPhase('review');
       Alert.alert('Could not save', (e as Error).message || 'Encryption or storage failed.');
@@ -259,6 +261,7 @@ export default function ScanDocument() {
 
   const recognised = fields.filter((f) => f.status === 'recognized').length;
   const totalLines = pages.reduce((n, p) => n + p.lines.length, 0);
+  const visibleFields = showAllFields ? fields : fields.filter((f) => f.status !== 'missing');
   const missing = fields.filter((f) => f.status === 'missing').length;
   const nextExtra = `Page ${pages.filter((p) => /^Page \d+$/.test(p.label)).length + 1}`;
 
@@ -275,20 +278,14 @@ export default function ScanDocument() {
             : 'Details were read from the boarding-pass barcode.'}
         </Notice>
       ) : recognised > 0 ? (
-        <Notice tone="info" title={`${recognised} detail${recognised === 1 ? '' : 's'} recognised`}>
-          Please check them. Anything that could not be read is marked “Not recognised” and left empty.
+        <Notice tone="info" title={`${recognised} detail${recognised === 1 ? '' : 's'} read automatically`}>
+          Please check them before saving.
         </Notice>
-      ) : (
-        <Notice tone="warning" title="No details recognised">
-          {pages.find((p) => p.ocrError)
-            ? `Text recognition failed on this phone: ${pages.find((p) => p.ocrError)?.ocrError}. You can type the details or save the document as it is.`
-            : !isNativeSecurityAvailable
-              ? 'On-device recognition is not available in this build. You can type the details or save as it is.'
-              : totalLines > 0
-                ? `${totalLines} lines of text were read, but none matched this document type. Check that you chose the right type, retake the photo in good light, or type the details.`
-                : 'No text could be read. Retake the photo closer, flat and without glare, or type the details.'}
-        </Notice>
-      )}
+      ) : pages.find((p) => p.ocrError) ? (
+        <Text style={[type.caption, { color: colors.warning }]}>
+          {`Automatic reading failed: ${pages.find((p) => p.ocrError)?.ocrError}`}
+        </Text>
+      ) : null}
 
       <SectionTitle>Captured</SectionTitle>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -371,12 +368,30 @@ export default function ScanDocument() {
         <Text style={[type.bodySecondary, { flex: 1, marginLeft: spacing.sm }]}>{description}</Text>
       </View>
 
+      {/* Only details that were read (or typed) are shown; the rest stay hidden until asked for. */}
       {fields.length ? (
         <>
-          <SectionTitle>
-            {`Recognised details${missing ? ` · ${missing} not recognised` : ''}`}
-          </SectionTitle>
-          <FieldEditor fields={fields} onChange={setFields} />
+          {visibleFields.length ? (
+            <>
+              <SectionTitle>Details</SectionTitle>
+              <FieldEditor
+                fields={visibleFields}
+                onChange={(changed) => setFields((all) => all.map((f) => changed.find((c) => c.key === f.key) ?? f))}
+              />
+            </>
+          ) : null}
+          {missing > 0 && !showAllFields ? (
+            <Pressable
+              onPress={() => setShowAllFields(true)}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.addDetails, pressed && { opacity: 0.8 }]}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={colors.primaryBright} />
+              <Text style={[type.bodySecondary, { color: colors.primaryBright, marginLeft: spacing.sm }]}>
+                {visibleFields.length ? 'Add more details' : 'Add details (optional)'}
+              </Text>
+            </Pressable>
+          ) : null}
         </>
       ) : null}
 
@@ -417,6 +432,11 @@ const styles = StyleSheet.create({
   thumbWrap: { width: 112, marginRight: spacing.md, alignItems: 'center' },
   thumb: { width: 112, height: 80, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   addThumb: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderColor: colors.primaryBorder },
+  addDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
   desc: {
     flexDirection: 'row',
     alignItems: 'flex-start',

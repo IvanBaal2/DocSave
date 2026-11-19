@@ -18,6 +18,8 @@ export type DocTypeDef = {
   multiPage?: boolean;
   /** Start with file import instead of the camera (e.g. PDF files). */
   importFirst?: boolean;
+  /** Card is usually vertical (badges); the camera guide starts in portrait. */
+  portrait?: boolean;
   /** Short hint shown on the picker card. */
   hint: string;
 };
@@ -96,7 +98,8 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
         "optionalFrom": 1,
         "frame": "card",
         "kind": "org-id",
-        "hint": "Work badge; back side optional"
+        "portrait": true,
+        "hint": "Work badge; portrait or landscape"
       },
       {
         "id": "student_id",
@@ -260,6 +263,19 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
         "hint": "Scan every page",
         "multiPage": true
       }
+    ]
+  },
+  {
+    "id": "wallet",
+    "name": "Cards & Coupons",
+    "icon": "wallet-outline",
+    "color": "#F472B6",
+    "description": "Loyalty cards, gift cards, coupons",
+    "builtIn": true,
+    "types": [
+      { "id": "loyalty_card", "label": "Loyalty Card", "icon": "card-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "loyalty", "hint": "Reads the barcode automatically" },
+      { "id": "gift_card", "label": "Gift Card", "icon": "gift-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "giftcard", "hint": "Card number, PIN and value" },
+      { "id": "coupon", "label": "Coupon", "icon": "pricetag-outline", "slots": ["Coupon"], "frame": "document", "kind": "coupon", "hint": "Code, offer and expiry" }
     ]
   },
   {

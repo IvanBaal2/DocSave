@@ -277,7 +277,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   }
 
   function compromisedBlock(): UnlockResult | null {
-    if (settingsRef.current.blockOnCompromisedDevice && integrity.compromised) {
+    // Always enforced: a rooted / jailbroken device cannot unlock the vault.
+    if (integrity.compromised) {
       return {
         ok: false,
         error: 'This device shows signs of being rooted or jailbroken. Your security settings block unlocking on such devices.',

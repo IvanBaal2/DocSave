@@ -33,9 +33,16 @@ export default function About() {
           Version {Constants.expoConfig?.version ?? '1.0.0'}
         </Text>
       </View>
-      <Text style={[type.bodySecondary, { textAlign: 'center' }]}>
-        Docsave is a private document vault. Your documents are encrypted on this device and never leave it. There is
-        no account and no cloud — and therefore no way for anyone else to access, or recover, your vault.
+      <Text style={[type.h2, { textAlign: 'center' }]}>Your important documents, always with you — and only with you.</Text>
+      <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.md }]}>
+        Docsave keeps your passport, ID cards, driving licence, work and student IDs, travel tickets, certificates,
+        loyalty cards and coupons in one private place on your phone. Scan a document and Docsave reads the important
+        details for you — name, number, dates — right on your device.
+      </Text>
+      <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.md }]}>
+        Everything is encrypted with AES-256 before it is saved and opens only with your PIN, face or fingerprint. There
+        is no account, no cloud and no tracking: your documents never leave this phone, and nobody else — not even us —
+        can open them.
       </Text>
 
       <SectionTitle>Security architecture</SectionTitle>

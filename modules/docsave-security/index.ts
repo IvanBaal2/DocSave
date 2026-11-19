@@ -19,7 +19,7 @@ type NativeModuleShape = {
   sealToFile(keyB64: string, aad: string, dataB64: string, path: string): Promise<number>;
   sealFileToFile(keyB64: string, aad: string, inPath: string, outPath: string): Promise<{ size: number; head: string }>;
   openFile(keyB64: string, aad: string, path: string): Promise<string>;
-  recognizeText(imageB64: string, maxDim: number): Promise<OcrResult>;
+  recognizeText(imageB64: string, maxDim: number, rotation: number): Promise<OcrResult>;
   cropJpeg(imageB64: string, x: number, y: number, w: number, h: number, quality: number, maxDim: number): Promise<string>;
 };
 
@@ -68,10 +68,32 @@ export function sortLines(lines: OcrLine[]): OcrLine[] {
 }
 
 /** On-device OCR (ML Kit bundled model on Android, Apple Vision on iOS). Lines are sorted. */
-export async function recognizeText(imageB64: string, maxDim = 2200): Promise<OcrResult> {
+export async function recognizeText(imageB64: string, maxDim = 2200, rotation = 0): Promise<OcrResult> {
   if (!Native) throw new Error('On-device text recognition is not available in this build.');
-  const r = await Native.recognizeText(imageB64, maxDim);
+  const r = await Native.recognizeText(imageB64, maxDim, rotation);
   return { ...r, lines: sortLines(r.lines) };
+}
+
+const textAmount = (r: OcrResult) => r.lines.reduce((n, l) => n + l.text.replace(/\s/g, '').length, 0);
+
+/**
+ * Reads a document whatever way it was held: tries upright first and, if
+ * little text is found, the image rotated 90° and 270° (portrait badges,
+ * cards photographed sideways), keeping the reading with the most text.
+ */
+export async function recognizeBest(imageB64: string, maxDim = 2400): Promise<OcrResult & { rotation: number }> {
+  const upright = await recognizeText(imageB64, maxDim, 0);
+  let best = { ...upright, rotation: 0 };
+  if (textAmount(upright) >= 60) return best;
+  for (const rotation of [90, 270, 180]) {
+    try {
+      const r = await recognizeText(imageB64, maxDim, rotation);
+      if (textAmount(r) > textAmount(best) * 1.3) best = { ...r, rotation };
+    } catch {
+      // keep the best so far
+    }
+  }
+  return best;
 }
 
 /** Crops a JPEG (normalised 0..1 rectangle) in memory, limiting the longest side. Returns base64 JPEG. */

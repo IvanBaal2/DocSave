@@ -96,16 +96,6 @@ export const TERMS: LegalDocument = {
         'We may update these Terms. When we do, the app will show the new version and ask you to accept it before continuing.',
       ],
     },
-    {
-      heading: '11. Applicable law',
-      body: [
-        'Docsave is a personal tool for anyone who chooses to use it. No government authority operates, sponsors or has access to Docsave or your vault. These Terms apply together with the consumer-protection and data-protection laws of the country where you live; nothing in them limits the rights those laws give you.',
-      ],
-    },
-    {
-      heading: '12. Contact and legal information',
-      body: [`Publisher: ${PUBLISHER} (independent developer)`, `Email: ${CONTACT}`],
-    },
   ],
 };
 
@@ -182,7 +172,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'Your privacy rights',
       body: [
         'Because the publisher does not process your personal data, there is no data held by us to access, correct, export or delete. You remain in full control: you can view, rename and delete documents at any time, delete all documents, or permanently destroy the vault from Settings. Uninstalling the app also removes the vault.',
-        'Depending on where you live, data-protection laws may give you additional rights. Contact us with any question.',
+        `Depending on where you live, data-protection laws may give you additional rights. Questions: ${CONTACT}`,
       ],
     },
     {
@@ -192,10 +182,6 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Changes to this policy',
       body: ['If this policy changes, the app will show the new version and ask you to review it.'],
-    },
-    {
-      heading: 'Contact',
-      body: [`Publisher: ${PUBLISHER} (independent developer)`, `Email: ${CONTACT}`],
     },
   ],
 };

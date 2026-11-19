@@ -6,13 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExpiryBadge, iconForDocument } from '../../../src/components/DocumentCard';
 import { ExpiryField } from '../../../src/components/ExpiryField';
 import { FieldEditor } from '../../../src/components/FieldEditor';
-import { describeDocument } from '../../../src/scan/extract';
+import { describeDocument, withTemplate } from '../../../src/scan/extract';
 import type { DocField } from '../../../src/vault/types';
 import { Button, Chip, IconButton, Notice, TextField, haptic, type IconName } from '../../../src/components/ui';
 import { TamperError, wipe } from '../../../src/crypto/core';
 import { useReauth } from '../../../src/security/ReauthProvider';
 import { colors, radius, spacing, type } from '../../../src/theme/theme';
-import { allCategories, findCategory, findDocType } from '../../../src/vault/categories';
+import { allCategories, findCategory, findDocType, findDocTypeAny } from '../../../src/vault/categories';
 import { useVault } from '../../../src/vault/VaultContext';
 import { formatBytes, formatDate, formatTimestamp } from '../../../src/utils/format';
 import { SecureViewer } from '../../../src/viewer/SecureViewer';
@@ -272,7 +272,8 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
   const [notes, setNotes] = useState(doc?.notes ?? '');
   const [expiry, setExpiry] = useState<string | undefined>(doc?.expiryDate);
   const [categoryId, setCategoryId] = useState(doc?.categoryId ?? 'other');
-  const [fields, setFields] = useState<DocField[]>(doc?.fields ?? []);
+  const kind = findDocTypeAny(doc?.docType)?.type.kind ?? 'generic';
+  const [fields, setFields] = useState<DocField[]>(withTemplate(kind, doc?.fields));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -281,7 +282,7 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
       setNotes(doc.notes ?? '');
       setExpiry(doc.expiryDate);
       setCategoryId(doc.categoryId);
-      setFields(doc.fields ?? []);
+      setFields(withTemplate(kind, doc.fields));
       setError(null);
     }
   }, [visible]);
@@ -296,7 +297,7 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
       expiryDate: expiry,
       categoryId,
       docType: categoryId === doc!.categoryId ? doc!.docType : undefined,
-      fields: fields.length ? fields : undefined,
+      fields: fields.some((f) => f.value.trim()) ? fields.filter((f) => f.value.trim()) : undefined,
       description: fields.length
         ? describeDocument(findDocType(doc!.categoryId, doc!.docType)?.label ?? name.trim(), fields, categoryId === 'travel' ? 'on' : 'expires')
         : doc!.description,

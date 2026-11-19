@@ -65,6 +65,9 @@ const MIN_LINES: Record<ScanKind, number> = {
   'id-card': 4,
   licence: 4,
   'org-id': 4,
+  loyalty: 3,
+  giftcard: 3,
+  coupon: 3,
   boarding: 5,
   ticket: 6,
   certificate: 5,
@@ -83,6 +86,9 @@ export function assessSnapshot(params: {
 
   if (kind === 'boarding' && barcode && parseBcbp(barcode)) {
     return { ready: true, message: 'Boarding pass barcode read', reason: 'barcode' };
+  }
+  if ((kind === 'loyalty' || kind === 'giftcard' || kind === 'coupon') && barcode) {
+    return { ready: true, message: 'Barcode read', reason: 'barcode' };
   }
   if (kind === 'passport' || kind === 'id-card' || (kind === 'licence' && sideIndex > 0)) {
     if (findMrz(lines)) return { ready: true, message: 'Machine-readable zone verified', reason: 'mrz' };

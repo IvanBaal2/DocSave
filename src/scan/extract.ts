@@ -10,7 +10,18 @@
  */
 import type { DocField } from '../vault/types';
 
-export type ScanKind = 'passport' | 'id-card' | 'licence' | 'org-id' | 'boarding' | 'ticket' | 'certificate' | 'generic';
+export type ScanKind =
+  | 'passport'
+  | 'id-card'
+  | 'licence'
+  | 'org-id'
+  | 'boarding'
+  | 'ticket'
+  | 'loyalty'
+  | 'giftcard'
+  | 'coupon'
+  | 'certificate'
+  | 'generic';
 
 export type Extraction = {
   fields: DocField[];
@@ -62,6 +73,25 @@ const TEMPLATES: Record<ScanKind, [string, string][]> = {
     ['organisation', 'Company / school'],
     ['role', 'Position / course'],
     ['issueDate', 'Issue date'],
+    ['expiryDate', 'Valid until'],
+  ],
+  loyalty: [
+    ['brand', 'Store / brand'],
+    ['cardNumber', 'Card number'],
+    ['memberName', 'Member name'],
+    ['expiryDate', 'Valid until'],
+  ],
+  giftcard: [
+    ['brand', 'Store / brand'],
+    ['cardNumber', 'Card number'],
+    ['pin', 'PIN / security code'],
+    ['balance', 'Value'],
+    ['expiryDate', 'Valid until'],
+  ],
+  coupon: [
+    ['brand', 'Store / brand'],
+    ['code', 'Coupon code'],
+    ['offer', 'Offer'],
     ['expiryDate', 'Valid until'],
   ],
   boarding: [
@@ -410,7 +440,7 @@ function labelledDate(lines: string[], labels: RegExp): string | undefined {
 const ISSUE_LABEL =
   /(date of issue|issue date|issuing date|issued on|issued|fecha de expedici[oó]n|fecha de emisi[oó]n|date de d[ée]livrance|data di rilascio|ausstellungsdatum|data de emiss[aã]o)/i;
 const EXPIRY_LABEL =
-  /(date of expiry|expiry date|expiry|expires|exp\.? date|valid until|valid thru|validity|v[aá]lido hasta|v[aá]lida hasta|fecha de caducidad|caducidad|vencimiento|date d'expiration|scadenza|g[uü]ltig bis|data de validade)/i;
+  /(date of expiry|expiry date|expiration( date)?|expiry|expires|exp\.? date|valid until|valid thru|validity|v[aá]lido hasta|v[aá]lida hasta|fecha de caducidad|caducidad|vencimiento|date d'expiration|scadenza|g[uü]ltig bis|data de validade)/i;
 const DOB_LABEL = /(date of birth|birth date|fecha de nacimiento|date de naissance|data di nascita|geburtsdatum|data de nascimento)/i;
 const DOCNUM_LABEL =
   /(document no\.?|document number|card no\.?|card number|id\.? no\.?|id number|identity (card )?number|personal no\.?|employee (id|no\.?|number)|staff (id|no\.?)|student (id|no\.?|number)|matr[ií]cula|n[uú]m(ero)?\.? (de )?(documento|soporte|identidad)|n[°º] du document|ausweisnummer)/i;
@@ -420,6 +450,31 @@ const SEX_LABEL = /^\s*(sex|sexo|sexe|gender)\b\s*[:.]?/i;
 const ORG_HINT =
   /\b(university|universidad|universit[éeàa]|college|school|colegio|escuela|institute|instituto|academy|academia|inc\.?|ltd\.?|llc|corp(oration)?|company|gmbh|s\.?a\.?|s\.?l\.?|group|hospital|ministry|bank)\b/i;
 const ROLE_LABEL = /^\s*(position|job title|designation|department|course|program(me)?|faculty|cargo|puesto|curso|grado)\b\s*[:.]?/i;
+
+const LAST_NAME_LABEL = /^\s*(last name|surname|family name|apellidos?|nom de famille|cognome|nachname)\b\s*[:.]?/i;
+const FIRST_NAME_LABEL = /^\s*(first name|given names?|forenames?|nombres?|pr[ée]noms?|nome|vorname)\b\s*[:.]?/i;
+const MIDDLE_NAME_LABEL = /^\s*(middle name)\b\s*[:.]?/i;
+const LICENCE_NO_LABEL =
+  /(licen[cs]e no\.?|licen[cs]e number|driver'?s? licen[cs]e no\.?|dl no\.?|d\.l\. no\.?|traffic code no\.?|n[uú]m(ero)?\.? (de )?(licencia|permiso|carn[eé])|permis n[°º])/i;
+const CLASS_LABEL = /^\s*(class(es)?|categor(y|ies)|vehicle (class|category)|restrictions?|clase|cat[ée]gories?)\b\s*[:.]?/i;
+
+/** Single-word name parts (surname / given names on separate labelled lines). */
+function cleanNamePart(v?: string): string | undefined {
+  if (!v) return undefined;
+  const t = v.replace(/\s+/g, ' ').replace(/[,;]+$/, '').trim();
+  return /^[\p{L}][\p{L} '.-]{0,40}$/u.test(t) && !/\d/.test(t) ? t : undefined;
+}
+
+/** Full name from a "Name" line, or from separate first / middle / last name lines. */
+function nameFromLabels(lines: string[]): string | undefined {
+  const full = cleanName(labelledAtStart(lines, NAME_LABEL));
+  if (full) return full;
+  const last = cleanNamePart(labelledAtStart(lines, LAST_NAME_LABEL));
+  const first = cleanNamePart(labelledAtStart(lines, FIRST_NAME_LABEL));
+  const middle = cleanNamePart(labelledAtStart(lines, MIDDLE_NAME_LABEL));
+  if (last && first) return [first, middle, last].filter(Boolean).join(' ');
+  return undefined;
+}
 
 /** A plausible person name: letters, spaces, hyphens, apostrophes; 2–6 words. */
 function cleanName(v?: string): string | undefined {
@@ -562,7 +617,7 @@ export function extract(kind: ScanKind, lines: string[], barcode?: string): Extr
     // No MRZ readable: fall back to clearly labelled values only.
     const num = labelled(clean, DOCNUM_LABEL);
     const expiryDate = labelledDate(clean, EXPIRY_LABEL);
-    const fullName = cleanName(labelledAtStart(clean, NAME_LABEL));
+    const fullName = nameFromLabels(clean);
     const nationality = countryValue(labelled(clean, NATIONALITY_LABEL));
     const sex = sexValue(labelledAtStart(clean, SEX_LABEL));
     const fields = fill(kind, {
@@ -578,8 +633,54 @@ export function extract(kind: ScanKind, lines: string[], barcode?: string): Extr
     return { fields, holder: fullName, keyDate: expiryDate, source: any ? 'text' : 'none', verified: false };
   }
 
+  if (kind === 'loyalty' || kind === 'giftcard' || kind === 'coupon') {
+    const code = barcode?.trim();
+    const brand = clean.find(
+      (l) =>
+        /^[\p{L}][\p{L}&'. -]{1,28}$/u.test(l) &&
+        !/^(gift|card|loyalty|member(ship)?|coupon|voucher|valid|expires?|balance|pin|code|scan|terms)\b/i.test(l),
+    );
+    const number =
+      code ??
+      labelled(clean, /(card (no\.?|number)|member(ship)? (no\.?|number|id)|n[uú]mero de (tarjeta|socio))/i)
+        ?.replace(/\s+/g, '')
+        .match(/^[A-Z0-9-]{4,30}/i)?.[0];
+    const pin = labelled(clean, /^\s*(pin|security code|scratch code|c[oó]digo)\b/i)?.match(/^[A-Z0-9-]{3,20}/i)?.[0];
+    // Prefer amounts written with a leading currency sign; never take a PIN / card line.
+    const prefixed = /(?:[$€£¥₱]|\b(?:AED|USD|EUR|GBP|PHP)\b)\s?\d+(?:[.,]\d{2})?/i;
+    const suffixed = /\b\d+(?:[.,]\d{2})?\s?(?:€|\b(?:EUR|USD|AED|PHP)\b)/i;
+    const moneyLines = clean.filter((l) => !/^\s*(pin|code|card)/i.test(l));
+    const money =
+      moneyLines.map((l) => prefixed.exec(l)?.[0]).find(Boolean) ??
+      moneyLines.map((l) => suffixed.exec(l)?.[0]).find(Boolean);
+    const promo =
+      kind === 'coupon'
+        ? (code ?? labelled(clean, /(promo(tion)? code|coupon code|voucher code|discount code|c[oó]digo( promocional)?)/i)?.match(/^[A-Z0-9-]{3,24}/i)?.[0])
+        : undefined;
+    const offer = kind === 'coupon' ? clean.find((l) => /(\d+\s?%|\boff\b|discount|descuento|free|gratis|2x1|buy one)/i.test(l)) : undefined;
+    const expiryDate = labelledDate(clean, EXPIRY_LABEL) ?? labelledDate(clean, /(valid|v[aá]lido|use by|until|hasta)/i);
+    const fields = fill(kind, {
+      brand,
+      cardNumber: number,
+      memberName: kind === 'loyalty' ? nameFromLabels(clean) : undefined,
+      pin,
+      balance: money,
+      code: promo,
+      offer,
+      expiryDate,
+    });
+    const any = fields.some((f) => f.status === 'recognized');
+    return {
+      fields,
+      holder: brand,
+      keyDate: expiryDate,
+      source: code ? 'barcode' : any ? 'text' : 'none',
+      verified: !!code,
+    };
+  }
+
   if (kind === 'org-id') {
-    const fullName = cleanName(labelledAtStart(clean, NAME_LABEL));
+    const fullName = nameFromLabels(clean);
     const num = labelled(clean, DOCNUM_LABEL)?.replace(/\s+/g, '').match(/^[A-Z0-9-]{3,20}/i)?.[0];
     const organisation = clean.find((l) => ORG_HINT.test(l) && l.length <= 70);
     const role = labelledAtStart(clean, ROLE_LABEL);
@@ -593,20 +694,30 @@ export function extract(kind: ScanKind, lines: string[], barcode?: string): Extr
   if (kind === 'licence') {
     const eu = euLicence(clean);
     const mrz = findMrz(clean); // some licences / permits carry an MRZ on the back
+    // Non-EU layouts (e.g. UAE, Philippines, US): labelled fields.
+    const generic = {
+      fullName: nameFromLabels(clean),
+      dateOfBirth: labelledDate(clean, DOB_LABEL),
+      documentNumber: labelled(clean, LICENCE_NO_LABEL)?.replace(/\s+/g, '').match(/^[A-Z0-9-]{4,20}/i)?.[0],
+      issueDate: labelledDate(clean, ISSUE_LABEL),
+      expiryDate: labelledDate(clean, EXPIRY_LABEL),
+      categories: labelledAtStart(clean, CLASS_LABEL)?.slice(0, 40),
+      issuingAuthority: labelled(clean, /(place of issue|issuing authority|issued by|authority|lugar de expedici[oó]n)/i)?.slice(0, 50),
+    };
     const fields = fill('licence', {
-      fullName: eu.fullName ?? mrz?.fullName,
-      dateOfBirth: eu.dateOfBirth ?? mrz?.dateOfBirth,
-      documentNumber: eu.documentNumber ?? mrz?.documentNumber,
-      issueDate: eu.issueDate,
-      expiryDate: eu.expiryDate ?? mrz?.expiryDate,
-      categories: eu.categories,
-      issuingAuthority: eu.issuingAuthority,
+      fullName: eu.fullName ?? generic.fullName ?? mrz?.fullName,
+      dateOfBirth: eu.dateOfBirth ?? generic.dateOfBirth ?? mrz?.dateOfBirth,
+      documentNumber: eu.documentNumber ?? generic.documentNumber ?? mrz?.documentNumber,
+      issueDate: eu.issueDate ?? generic.issueDate,
+      expiryDate: eu.expiryDate ?? generic.expiryDate ?? mrz?.expiryDate,
+      categories: eu.categories ?? generic.categories,
+      issuingAuthority: eu.issuingAuthority ?? generic.issuingAuthority,
     });
     const any = fields.some((f) => f.status === 'recognized');
     return {
       fields,
-      holder: eu.fullName ?? mrz?.fullName,
-      keyDate: eu.expiryDate ?? mrz?.expiryDate,
+      holder: eu.fullName ?? generic.fullName ?? mrz?.fullName,
+      keyDate: eu.expiryDate ?? generic.expiryDate ?? mrz?.expiryDate,
       source: mrz ? 'mrz' : any ? 'text' : 'none',
       verified: false,
     };
@@ -663,4 +774,11 @@ export function describeDocument(typeLabel: string, fields: { key: string; value
 /** Suggested document name from the extraction. */
 export function suggestName(typeLabel: string, holder?: string): string {
   return holder ? `${typeLabel} — ${holder}` : typeLabel;
+}
+
+/** Saved fields plus empty slots for the details this kind of document usually has. */
+export function withTemplate(kind: ScanKind, saved: DocField[] = []): DocField[] {
+  const out = emptyFields(kind).map((t) => saved.find((s) => s.key === t.key) ?? t);
+  for (const s of saved) if (!out.some((o) => o.key === s.key)) out.push(s);
+  return out;
 }

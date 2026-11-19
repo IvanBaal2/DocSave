@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, Text, View } from 'react-native';
-import { BOTTOM_NAV_HEIGHT, BottomNav } from '../../../src/components/BottomNav';
 import { Header, Screen, SectionTitle, SettingRow, SettingsGroup } from '../../../src/components/ui';
 import { useReauth } from '../../../src/security/ReauthProvider';
 import { colors, spacing, type } from '../../../src/theme/theme';
@@ -29,8 +28,8 @@ export default function SettingsHome() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-    <Screen edges={['top']} contentStyle={{ paddingBottom: BOTTOM_NAV_HEIGHT + 48 }}>
-      <Header title="Settings" back={false} />
+    <Screen>
+      <Header title="Settings" />
 
       <SectionTitle>Security</SectionTitle>
       <SettingsGroup>
@@ -69,12 +68,7 @@ export default function SettingsHome() {
           subtitle="Confirm before viewing, erase after failed PINs"
           onPress={() => router.push({ pathname: '/settings/security', params: { section: 'access' } })}
         />
-        <SettingRow
-          icon="phone-portrait-outline"
-          title="Device security check"
-          value={vault.integrity.compromised ? 'At risk' : 'OK'}
-          onPress={() => router.push({ pathname: '/settings/security', params: { section: 'integrity' } })}
-        />
+        <SettingRow icon="lock-closed-outline" title="Lock now" subtitle="Close the vault immediately" onPress={vault.lock} />
         <SettingRow
           icon="shield-checkmark-outline"
           title="How Docsave protects you"
@@ -96,7 +90,6 @@ export default function SettingsHome() {
           value={vault.settings.notificationsEnabled ? 'On' : 'Off'}
           onPress={() => router.push('/settings/notifications')}
         />
-        <SettingRow icon="albums-outline" title="Folders & categories" onPress={() => router.push('/categories')} />
       </SettingsGroup>
 
       <SectionTitle>About</SectionTitle>
@@ -136,7 +129,6 @@ export default function SettingsHome() {
         Docsave {Constants.expoConfig?.version ?? ''} · Your Documents. Your Device. Your Privacy.
       </Text>
     </Screen>
-    <BottomNav active="settings" />
     </View>
   );
 }

@@ -317,3 +317,62 @@ describe('employee and student IDs', () => {
     expect(status(e.fields, 'organisation')).toBe('missing');
   });
 });
+
+describe('non-EU driving licences', () => {
+  test('UAE style labelled licence', () => {
+    const e = extract('licence', [
+      'UNITED ARAB EMIRATES',
+      'DRIVING LICENSE',
+      'Name: Ivan Lorence Baal',
+      'License No. 1234567',
+      'Date of Birth 15-01-1990',
+      'Issue Date 02-03-2022',
+      'Expiry Date 01-03-2027',
+      'Place of Issue Dubai',
+    ]);
+    expect(value(e.fields, 'fullName')).toBe('Ivan Lorence Baal');
+    expect(value(e.fields, 'documentNumber')).toBe('1234567');
+    expect(value(e.fields, 'dateOfBirth')).toBe('1990-01-15');
+    expect(value(e.fields, 'issueDate')).toBe('2022-03-02');
+    expect(value(e.fields, 'expiryDate')).toBe('2027-03-01');
+    expect(value(e.fields, 'issuingAuthority')).toBe('Dubai');
+  });
+
+  test('Philippine style licence with separate name lines', () => {
+    const e = extract('licence', [
+      "DRIVER'S LICENSE",
+      'Last Name', 'BAAL',
+      'First Name', 'IVAN LORENCE',
+      'License No. N01-12-345678',
+      'Expiration Date 2028/01/15',
+    ]);
+    expect(value(e.fields, 'fullName')).toBe('IVAN LORENCE BAAL');
+    expect(value(e.fields, 'documentNumber')).toBe('N01-12-345678');
+    expect(value(e.fields, 'expiryDate')).toBe('2028-01-15');
+  });
+});
+
+describe('cards and coupons', () => {
+  test('loyalty card number comes from the barcode', () => {
+    const e = extract('loyalty', ['Carrefour', 'MyClub', 'Member card'], '2900123456789');
+    expect(value(e.fields, 'brand')).toBe('Carrefour');
+    expect(value(e.fields, 'cardNumber')).toBe('2900123456789');
+    expect(e.source).toBe('barcode');
+  });
+
+  test('gift card PIN, value and expiry', () => {
+    const e = extract('giftcard', ['Amazon', 'Gift Card', 'Card number: 6011 2233 4455', 'PIN: 8821', '€50.00', 'Valid until 31/12/2027']);
+    expect(value(e.fields, 'brand')).toBe('Amazon');
+    expect(value(e.fields, 'cardNumber')).toBe('601122334455');
+    expect(value(e.fields, 'pin')).toBe('8821');
+    expect(value(e.fields, 'balance')).toBe('€50.00');
+    expect(value(e.fields, 'expiryDate')).toBe('2027-12-31');
+  });
+
+  test('coupon code and offer', () => {
+    const e = extract('coupon', ['Zara', '20% OFF your next order', 'Promo code: WINTER20', 'Expires 15/01/2027']);
+    expect(value(e.fields, 'code')).toBe('WINTER20');
+    expect(value(e.fields, 'offer')).toBe('20% OFF your next order');
+    expect(value(e.fields, 'expiryDate')).toBe('2027-01-15');
+  });
+});

@@ -87,30 +87,6 @@ export default function ChooseDocumentType() {
         </View>
       ))}
 
-      {index.customCategories.length ? (
-        <>
-          <SectionTitle>Your folders</SectionTitle>
-          <View style={styles.grid}>
-            {index.customCategories.map((c) => (
-              <View key={c.id} style={styles.cell}>
-                <Pressable
-                  onPress={() => router.push({ pathname: '/scan', params: { type: 'custom', categoryId: c.id } })}
-                  accessibilityRole="button"
-                  style={({ pressed }) => [styles.card, pressed && { backgroundColor: colors.surfacePressed }]}
-                >
-                  <View style={[styles.icon, { backgroundColor: '#2DD4BF1F' }]}>
-                    <Ionicons name={c.icon as IconName} size={24} color="#2DD4BF" />
-                  </View>
-                  <Text style={[type.h3, { marginTop: spacing.md }]} numberOfLines={2}>
-                    {c.name}
-                  </Text>
-                  <Text style={[type.caption, { marginTop: 4 }]}>Custom folder</Text>
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        </>
-      ) : null}
     </Screen>
   );
 }

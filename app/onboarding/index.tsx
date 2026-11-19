@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { useOnboarding } from './_layout';
 import { BrandLogo, Button, FadeIn, Screen, type IconName } from '../../src/components/ui';
 import { colors, gradients, spacing, type } from '../../src/theme/theme';
 
@@ -14,11 +15,32 @@ const FEATURES: { icon: IconName; title: string; body: string }[] = [
 
 export default function Welcome() {
   const router = useRouter();
+  const ob = useOnboarding();
+  const start = () => {
+    // Continuing records agreement to the Terms and Privacy Policy linked below.
+    ob.set({ termsAccepted: true, privacyAccepted: true, recoveryAcknowledged: true });
+    router.push('/onboarding/pin');
+  };
   return (
     <View style={{ flex: 1 }}>
       <LinearGradient colors={gradients.hero} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 520 }} />
       <Screen
-        footer={<Button title="Get started" icon="arrow-forward" onPress={() => router.push('/onboarding/recovery')} />}
+        footer={
+          <View>
+            <Button title="Get started" icon="arrow-forward" onPress={start} />
+            <Text style={[type.caption, { textAlign: 'center', marginTop: spacing.md }]}>
+              By continuing you agree to the{' '}
+              <Text style={{ color: colors.primaryBright }} onPress={() => router.push('/onboarding/terms')} accessibilityRole="link">
+                Terms & Conditions
+              </Text>{' '}
+              and{' '}
+              <Text style={{ color: colors.primaryBright }} onPress={() => router.push('/onboarding/privacy')} accessibilityRole="link">
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </View>
+        }
       >
         <FadeIn style={{ alignItems: 'center', marginTop: spacing.md }}>
           <BrandLogo size={250} />

@@ -108,7 +108,7 @@ class DocsaveSecurityModule : Module() {
 
     // maxDim: images are downscaled before recognition. Modern phone photos
     // (50+ MP) are otherwise too large to decode reliably and slow to analyse.
-    AsyncFunction("recognizeText") { imageB64: String, maxDim: Int, promise: Promise ->
+    AsyncFunction("recognizeText") { imageB64: String, maxDim: Int, rotation: Int, promise: Promise ->
       val bitmap = try {
         decodeUpright(b64d(imageB64), maxDim)
       } catch (e: Throwable) {
@@ -120,7 +120,8 @@ class DocsaveSecurityModule : Module() {
         return@AsyncFunction
       }
       val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-      recognizer.process(InputImage.fromBitmap(bitmap, 0))
+      // rotation (0/90/180/270): lets ML Kit read cards photographed sideways.
+      recognizer.process(InputImage.fromBitmap(bitmap, ((rotation % 360) + 360) % 360))
         .addOnSuccessListener { result ->
           val lines = result.textBlocks.flatMap { it.lines }.map { line ->
             val box = line.boundingBox

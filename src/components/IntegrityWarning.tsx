@@ -25,7 +25,7 @@ export function IntegrityWarning() {
             <Notice tone="info" title="Detected indicators">
               <Text style={type.caption}>{integrity.reasons.join('\n') || 'unspecified'}</Text>
             </Notice>
-            {settings.blockOnCompromisedDevice ? (
+            {integrity.compromised ? (
               <Notice tone="danger" title="Unlocking is blocked">
                 Your security settings prevent the vault from being unlocked on this device.
               </Notice>

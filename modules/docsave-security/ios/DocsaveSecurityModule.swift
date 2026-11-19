@@ -141,7 +141,7 @@ public class DocsaveSecurityModule: Module {
 
     // ── On-device text recognition (Apple Vision, no network) ──────────────
 
-    AsyncFunction("recognizeText") { (imageB64: String, maxDim: Int, promise: Promise) in
+    AsyncFunction("recognizeText") { (imageB64: String, maxDim: Int, rotation: Int, promise: Promise) in
       guard let data = Data(base64Encoded: imageB64), let image = Self.upright(UIImage(data: data), maxDim: maxDim),
             let cg = image.cgImage else {
         promise.reject(ImageException())
@@ -172,7 +172,14 @@ public class DocsaveSecurityModule: Module {
       request.usesLanguageCorrection = false
       DispatchQueue.global(qos: .userInitiated).async {
         do {
-          try VNImageRequestHandler(cgImage: cg, options: [:]).perform([request])
+          let orientation: CGImagePropertyOrientation
+          switch ((rotation % 360) + 360) % 360 {
+          case 90: orientation = .right
+          case 180: orientation = .down
+          case 270: orientation = .left
+          default: orientation = .up
+          }
+          try VNImageRequestHandler(cgImage: cg, orientation: orientation, options: [:]).perform([request])
         } catch {
           promise.reject(CryptoFailureException("ocr: \(error.localizedDescription)"))
         }

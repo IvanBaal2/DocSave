@@ -100,7 +100,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hideSensitivePreviews: true,
   reauthForDocuments: true,
   wipeAfterFailedAttempts: false,
-  blockOnCompromisedDevice: false,
+  blockOnCompromisedDevice: true,
   notificationsEnabled: false,
   expiryReminders: true,
   identityReminders: true,

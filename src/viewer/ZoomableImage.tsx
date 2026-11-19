@@ -12,7 +12,18 @@ const distance = (e: GestureResponderEvent) => {
  * Native image viewer with pinch-to-zoom, drag and double-tap. The image is a
  * data URI decoded in memory only (no file, no web view).
  */
-export function ZoomableImage({ base64, mimeType, onError }: { base64: string; mimeType: string; onError?: () => void }) {
+export function ZoomableImage({
+  base64,
+  mimeType,
+  onError,
+  rotation = 0,
+}: {
+  base64: string;
+  mimeType: string;
+  onError?: () => void;
+  /** Display rotation in degrees (view only; the stored file is unchanged). */
+  rotation?: number;
+}) {
   const scale = useRef(new Animated.Value(1)).current;
   const tx = useRef(new Animated.Value(0)).current;
   const ty = useRef(new Animated.Value(0)).current;
@@ -94,7 +105,7 @@ export function ZoomableImage({ base64, mimeType, onError }: { base64: string; m
 
   return (
     <View style={styles.root} onLayout={onLayout} {...responder.panHandlers}>
-      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX: tx }, { translateY: ty }, { scale }] }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX: tx }, { translateY: ty }, { scale }, { rotate: `${rotation}deg` }] }]}>
         <Image
           source={{ uri }}
           style={StyleSheet.absoluteFill}

@@ -5,6 +5,7 @@ dist/
 /android/
 *.log
 src/viewer/pdfjsSource.generated.js
+assets/pdfjs/*.txt
 .env*
 *.keystore
 *.jks

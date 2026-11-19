@@ -3,7 +3,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { cropJpeg, isNativeSecurityAvailable, recognizeBest, recognizeText } from '../../modules/docsave-security';
+import { cropJpeg, isNativeSecurityAvailable, recognizeBest, recognizeText, rotateJpeg } from '../../modules/docsave-security';
 import { FRAME_ASPECT, assessSnapshot, screenRectToPhoto, type Rect } from '../scan/capture';
 import { parseBcbp } from '../scan/extract';
 import { deleteTempFile } from '../security/secureTemp';
@@ -128,7 +128,7 @@ export function GuidedCamera({
       if (!photo?.base64) throw new Error('No image');
       const f = frameRef.current;
       const l = layoutRef.current;
-      const base64 =
+      let base64 =
         f && l
           ? await cropJpeg(photo.base64, screenRectToPhoto(f, l, { width: photo.width, height: photo.height }, 0.06), 0.9, 3200)
           : photo.base64;
@@ -136,7 +136,10 @@ export function GuidedCamera({
       let ocrError: string | undefined;
       if (autoCapture) {
         try {
-          lines = (await recognizeBest(base64, 2400)).lines.map((x) => x.text);
+          const best = await recognizeBest(base64, 2400);
+          lines = best.lines.map((x) => x.text);
+          // Text was found sideways / upside down: store the photo upright.
+          if (best.rotation) base64 = await rotateJpeg(base64, best.rotation);
         } catch (e) {
           ocrError = (e as Error)?.message || 'Text recognition failed';
         }

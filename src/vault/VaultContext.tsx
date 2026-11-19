@@ -132,12 +132,15 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   // ── Boot ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      purgeTempFiles();
-      setIntegrity(checkIntegrity());
       refreshBiometrics(); // not awaited: never delays the unlock screen
-      const [m, s, a] = await Promise.all([Keys.readMeta(), Keys.readSettings(), Keys.getAttempts()]);
+      // Only what decides the first screen is awaited; everything else runs after it shows.
+      const [m, s] = await Promise.all([Keys.readMeta(), Keys.readSettings()]);
       setSettings(s);
-      setAttempts(a);
+      setTimeout(() => {
+        purgeTempFiles();
+        setIntegrity(checkIntegrity());
+        Keys.getAttempts().then(setAttempts).catch(() => {});
+      }, 0);
       if (m) {
         const storedId = Store.readVaultId();
         if (storedId !== m.vaultId) {
@@ -278,7 +281,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   function compromisedBlock(): UnlockResult | null {
     // Always enforced: a rooted / jailbroken device cannot unlock the vault.
-    if (integrity.compromised) {
+    // Checked fresh at every unlock (the startup check runs after the first screen).
+    if (checkIntegrity().compromised) {
       return {
         ok: false,
         error: 'This device shows signs of being rooted or jailbroken. Your security settings block unlocking on such devices.',

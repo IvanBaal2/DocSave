@@ -5,7 +5,7 @@ import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DocumentCard, iconForDocument } from '../../src/components/DocumentCard';
-import { EmptyState, FadeIn, IconButton, LogoMark, SectionTitle, type IconName } from '../../src/components/ui';
+import { EmptyState, FadeIn, IconButton, SectionTitle, type IconName } from '../../src/components/ui';
 import { colors, gradients, radius, shadow, spacing, type } from '../../src/theme/theme';
 import { ESSENTIAL_TYPES, findCategory, findDocTypeAny } from '../../src/vault/categories';
 import { useVault } from '../../src/vault/VaultContext';
@@ -37,8 +37,7 @@ export default function Dashboard() {
         {/* 1. Brand + 2. compact security indicator */}
         <View style={styles.topRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <LogoMark size={40} />
-            <View style={{ marginLeft: spacing.md, flex: 1 }}>
+            <View style={{ flex: 1 }}>
               <Text style={[type.h1, { fontSize: 22 }]}>
                 Doc<Text style={{ color: colors.primaryBright }}>save</Text>
               </Text>
@@ -110,14 +109,10 @@ export default function Dashboard() {
             return (
               <FadeIn key={typeId} delay={60 + i * 40} style={styles.idCell}>
                 <Pressable
-                  onPress={() =>
-                    doc
-                      ? router.push({ pathname: '/document/[id]', params: { id: doc.id } })
-                      : router.push({ pathname: '/scan', params: { type: typeId } })
-                  }
-                  onLongPress={() => router.push({ pathname: '/scan', params: { type: typeId } })}
+                  // Always adds a new one (e.g. a family member's ID); saved ones are under My Documents.
+                  onPress={() => router.push({ pathname: '/scan', params: { type: typeId } })}
                   accessibilityRole="button"
-                  accessibilityLabel={doc ? `Open ${def.type.label}` : `Scan ${def.type.label}`}
+                  accessibilityLabel={`Add ${def.type.label}${saved.length ? `, ${saved.length} saved` : ''}`}
                   style={({ pressed }) => [
                     styles.idTile,
                     doc && { borderColor: colors.primaryBorder },
@@ -135,10 +130,10 @@ export default function Dashboard() {
                       style={[type.caption, { marginTop: 2, color: days != null && days <= 90 ? colors.warning : colors.primaryBright }]}
                       numberOfLines={1}
                     >
-                      {days != null && days < 0 ? 'Expired' : days != null && days <= 90 ? `Expires in ${days}d` : '✓ Saved · tap to open'}
+                      {days != null && days < 0 ? `${saved.length} saved · one expired` : days != null && days <= 90 ? `${saved.length} saved · expires in ${days}d` : `${saved.length} saved · + add another`}
                     </Text>
                   ) : (
-                    <Text style={[type.caption, { marginTop: 2 }]}>+ Scan now</Text>
+                    <Text style={[type.caption, { marginTop: 2 }]}>+ Add</Text>
                   )}
                 </Pressable>
               </FadeIn>

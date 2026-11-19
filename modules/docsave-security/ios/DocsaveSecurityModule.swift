@@ -190,7 +190,7 @@ public class DocsaveSecurityModule: Module {
       }
     }
 
-    AsyncFunction("cropJpeg") { (imageB64: String, x: Double, y: Double, w: Double, h: Double, quality: Double, maxDim: Int) throws -> String in
+    AsyncFunction("cropJpeg") { (imageB64: String, x: Double, y: Double, w: Double, h: Double, quality: Double, maxDim: Int, rotation: Int) throws -> String in
       guard let data = Data(base64Encoded: imageB64), let image = Self.upright(UIImage(data: data), maxDim: maxDim),
             let cg = image.cgImage else { throw ImageException() }
       let W = Double(cg.width), H = Double(cg.height)
@@ -201,8 +201,17 @@ public class DocsaveSecurityModule: Module {
         width: max(1, min(W - left, max(0, min(1, w)) * W)),
         height: max(1, min(H - top, max(0, min(1, h)) * H))
       ).integral
-      guard let cropped = cg.cropping(to: rect),
-            let jpeg = UIImage(cgImage: cropped).jpegData(compressionQuality: CGFloat(max(0.3, min(1, quality)))) else {
+      guard let cropped = cg.cropping(to: rect) else { throw ImageException() }
+      // Rotate clockwise so the document is upright.
+      let orientation: UIImage.Orientation
+      switch ((rotation % 360) + 360) % 360 {
+      case 90: orientation = .right
+      case 180: orientation = .down
+      case 270: orientation = .left
+      default: orientation = .up
+      }
+      let oriented = Self.upright(UIImage(cgImage: cropped, scale: 1, orientation: orientation)) ?? UIImage(cgImage: cropped)
+      guard let jpeg = oriented.jpegData(compressionQuality: CGFloat(max(0.3, min(1, quality)))) else {
         throw ImageException()
       }
       return jpeg.base64EncodedString()

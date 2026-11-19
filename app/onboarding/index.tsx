@@ -19,7 +19,7 @@ export default function Welcome() {
   const start = () => {
     // Continuing records agreement to the Terms and Privacy Policy linked below.
     ob.set({ termsAccepted: true, privacyAccepted: true, recoveryAcknowledged: true });
-    router.push('/onboarding/pin');
+    router.push('/onboarding/biometrics');
   };
   return (
     <View style={{ flex: 1 }}>

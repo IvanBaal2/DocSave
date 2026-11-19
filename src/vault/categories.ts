@@ -109,7 +109,8 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
         "optionalFrom": 1,
         "frame": "card",
         "kind": "org-id",
-        "hint": "School or university card"
+        "portrait": true,
+        "hint": "School or university card; portrait or landscape"
       },
       {
         "id": "other_identity",

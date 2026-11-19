@@ -31,6 +31,8 @@ export default function DocumentViewer() {
   const [error, setError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [rotation, setRotation] = useState(0);
+  useEffect(() => setRotation(0), [pageIdx]);
   const bytesRef = useRef<string | null>(null);
   const authInFlight = useRef(false);
 
@@ -198,12 +200,15 @@ export default function DocumentViewer() {
             <Text style={[type.caption, { marginTop: spacing.md }]}>Verifying integrity and decrypting…</Text>
           </View>
         ) : (
-          <SecureViewer key={page.id} base64={bytes} mimeType={page.mimeType} />
+          <SecureViewer key={page.id} base64={bytes} mimeType={page.mimeType} rotation={rotation} />
         )}
       </View>
 
       <View style={styles.toolbar}>
         <ToolbarButton icon="create-outline" label="Edit" onPress={() => setEditing(true)} />
+        {page?.mimeType.startsWith('image/') ? (
+          <ToolbarButton icon="refresh-outline" label="Rotate" onPress={() => setRotation((r) => (r + 90) % 360)} />
+        ) : null}
         {doc.pages.length > 1 ? (
           <ToolbarButton
             icon="swap-horizontal"

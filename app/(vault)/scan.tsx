@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { isNativeSecurityAvailable, recognizeBest } from '../../modules/docsave-security';
+import { isNativeSecurityAvailable, recognizeBest, rotateJpeg } from '../../modules/docsave-security';
 import { ExpiryField } from '../../src/components/ExpiryField';
 import { FieldEditor } from '../../src/components/FieldEditor';
 import { GuidedCamera, type CapturedSide } from '../../src/components/GuidedCamera';
@@ -144,7 +144,9 @@ export default function ScanDocument() {
       let ocrError: string | undefined;
       if (picked.base64 && isNativeSecurityAvailable && picked.mimeType.startsWith('image/')) {
         try {
-          lines = (await recognizeBest(picked.base64, 2400)).lines.map((l) => l.text);
+          const best = await recognizeBest(picked.base64, 2400);
+          lines = best.lines.map((l) => l.text);
+          if (best.rotation) picked.base64 = await rotateJpeg(picked.base64, best.rotation);
         } catch (e) {
           ocrError = (e as Error)?.message || 'Text recognition failed';
         }

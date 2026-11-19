@@ -183,14 +183,17 @@ class DocsaveSecurityModule : Module() {
     }
 
     // Crops a JPEG to a normalised rectangle (0..1) and re-encodes it, in memory.
-    AsyncFunction("cropJpeg") { imageB64: String, x: Double, y: Double, w: Double, h: Double, quality: Double, maxDim: Int ->
+    AsyncFunction("cropJpeg") { imageB64: String, x: Double, y: Double, w: Double, h: Double, quality: Double, maxDim: Int, rotation: Int ->
       val src = decodeUpright(b64d(imageB64), maxDim)
         ?: throw CodedException("ERR_IMAGE", "The image could not be decoded", null)
       val left = (x.coerceIn(0.0, 1.0) * src.width).toInt()
       val top = (y.coerceIn(0.0, 1.0) * src.height).toInt()
       val width = (w.coerceIn(0.0, 1.0) * src.width).toInt().coerceAtMost(src.width - left).coerceAtLeast(1)
       val height = (h.coerceIn(0.0, 1.0) * src.height).toInt().coerceAtMost(src.height - top).coerceAtLeast(1)
-      val cropped = Bitmap.createBitmap(src, left, top, width, height)
+      val deg = ((rotation % 360) + 360) % 360
+      val matrix = Matrix().apply { if (deg != 0) postRotate(deg.toFloat()) }
+      // Crop and (optionally) rotate clockwise so the document is upright.
+      val cropped = Bitmap.createBitmap(src, left, top, width, height, matrix, true)
       val out = ByteArrayOutputStream()
       cropped.compress(Bitmap.CompressFormat.JPEG, (quality * 100).toInt().coerceIn(30, 100), out)
       if (cropped != src) cropped.recycle()

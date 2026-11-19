@@ -20,7 +20,7 @@ type NativeModuleShape = {
   sealFileToFile(keyB64: string, aad: string, inPath: string, outPath: string): Promise<{ size: number; head: string }>;
   openFile(keyB64: string, aad: string, path: string): Promise<string>;
   recognizeText(imageB64: string, maxDim: number, rotation: number): Promise<OcrResult>;
-  cropJpeg(imageB64: string, x: number, y: number, w: number, h: number, quality: number, maxDim: number): Promise<string>;
+  cropJpeg(imageB64: string, x: number, y: number, w: number, h: number, quality: number, maxDim: number, rotation: number): Promise<string>;
   readLastCrash(): string | null;
   clearLastCrash(): boolean;
 };
@@ -104,9 +104,16 @@ export async function cropJpeg(
   rect: { x: number; y: number; w: number; h: number },
   quality = 0.9,
   maxDim = 3200,
+  rotation = 0,
 ) {
   if (!Native) return imageB64;
-  return Native.cropJpeg(imageB64, rect.x, rect.y, rect.w, rect.h, quality, maxDim);
+  return Native.cropJpeg(imageB64, rect.x, rect.y, rect.w, rect.h, quality, maxDim, rotation);
+}
+
+/** Rotates a JPEG clockwise by 90/180/270 degrees, in memory. */
+export async function rotateJpeg(imageB64: string, rotation: number, quality = 0.9) {
+  if (!Native || !rotation) return imageB64;
+  return Native.cropJpeg(imageB64, 0, 0, 1, 1, quality, 0, rotation);
 }
 
 /** Technical details of the last native crash (Android), if any. */

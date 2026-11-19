@@ -38,17 +38,17 @@ export default function CreatePin() {
     ob.set({ pin });
     setFirst(null);
     setValue('');
-    router.push('/onboarding/biometrics');
+    router.push('/onboarding/finish');
   }
 
   return (
     <Screen scroll={false}>
-      <Header title="Create your PIN" right={<StepDots step={1} total={ONBOARDING_STEPS} />} />
+      <Header title="Backup PIN" right={<StepDots step={2} total={ONBOARDING_STEPS} />} />
       <View style={{ flex: 1, justifyContent: 'space-between', paddingBottom: spacing.xl }}>
         <View style={{ paddingHorizontal: spacing.xl, alignItems: 'center' }}>
-          <Text style={[type.h1, { textAlign: 'center' }]}>{first ? 'Confirm your PIN' : `Choose a ${length}-digit PIN`}</Text>
+          <Text style={[type.h1, { textAlign: 'center' }]}>{first ? 'Confirm your backup PIN' : `Choose a ${length}-digit backup PIN`}</Text>
           <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.sm }]}>
-            Your PIN protects the encryption key. It cannot be recovered or reset — choose one you will remember.
+            {ob.unlockMode === 'pin' ? 'You will use this PIN to open Docsave.' : 'You will normally use your face or fingerprint. This PIN is your backup if the sensor fails or changes.'} It cannot be recovered or reset, so choose one you will remember.
           </Text>
           {!first ? (
             <View style={{ flexDirection: 'row', marginTop: spacing.lg }}>

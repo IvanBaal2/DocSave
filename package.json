@@ -1,6 +1,6 @@
 {
   "name": "docsave",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Docsave: a private, offline document vault for Android and iOS. Passports, ID cards, tickets and personal documents are encrypted on-device with AES-256-GCM and protected by PIN and Face ID / fingerprint. No account, no cloud, no tracking.",
   "private": true,
   "repository": {
@@ -23,7 +23,8 @@
     "legal:pages": "node scripts/build-legal-pages.mjs",
     "submit:android": "eas submit -p android --profile production",
     "submit:ios": "eas submit -p ios --profile production",
-    "brand": "node scripts/build-brand-assets.js"
+    "brand": "node scripts/build-brand-assets.js",
+    "verify:apk": "node scripts/verify-apk.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

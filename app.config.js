@@ -141,6 +141,10 @@ module.exports = {
       './plugins/withAndroidNoBackup',
     ],
     experiments: { typedRoutes: false },
-    extra: { production: IS_PRODUCTION },
+    owner: 'ivanbaal2',
+    extra: {
+      production: IS_PRODUCTION,
+      eas: { projectId: '0e4678ea-56be-42f8-aa3c-78edb968f630' },
+    },
   },
 };

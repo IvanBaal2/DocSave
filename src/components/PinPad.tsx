@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { colors, spacing, type } from '../theme/theme';
 import type { IconName } from './ui';
 
@@ -24,6 +24,10 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'left', '0', 'del'] a
  */
 export function PinPad({ value, onChange, length, onComplete, disabled, errorSignal = 0, leftAction }: Props) {
   const shake = useRef(new Animated.Value(0)).current;
+  // Smaller keys on short / narrow screens so the whole keypad always fits.
+  const { height, width } = useWindowDimensions();
+  const key = Math.round(Math.max(54, Math.min(74, height * 0.085, (width - 80) / 3)));
+  const keyStyle = { width: key, height: key, borderRadius: key / 2, marginBottom: Math.round(key * 0.18) };
 
   useEffect(() => {
     if (!errorSignal) return;
@@ -75,7 +79,7 @@ export function PinPad({ value, onChange, length, onComplete, disabled, errorSig
           <View key={i} style={[styles.dot, i < value.length && styles.dotFilled]} />
         ))}
       </Animated.View>
-      <View style={styles.grid}>
+      <View style={[styles.grid, { width: key * 3 + 48 }]}>
         {KEYS.map((k) => {
           if (k === 'left' && !leftAction) return <View key={k} style={styles.key} />;
           const label =
@@ -90,6 +94,7 @@ export function PinPad({ value, onChange, length, onComplete, disabled, errorSig
               accessibilityLabel={label}
               style={({ pressed }) => [
                 styles.key,
+                keyStyle,
                 k !== 'del' && k !== 'left' && styles.keyDigit,
                 pressed && { backgroundColor: colors.surfacePressed, transform: [{ scale: 0.95 }] },
               ]}

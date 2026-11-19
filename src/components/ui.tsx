@@ -235,6 +235,12 @@ export function SectionTitle({ children, action }: { children: string; action?: 
   );
 }
 
+/** True when children are only strings / numbers (including mixed text like "a {b} c"). */
+function isPlainText(children: React.ReactNode): boolean {
+  const items = React.Children.toArray(children);
+  return items.length > 0 && items.every((c) => typeof c === 'string' || typeof c === 'number');
+}
+
 export function Notice({
   tone = 'info',
   icon,
@@ -257,7 +263,7 @@ export function Notice({
       <Ionicons name={icon ?? palette.icon} size={20} color={palette.fg} style={{ marginTop: 1 }} />
       <View style={{ flex: 1, marginLeft: spacing.md }}>
         {title ? <Text style={[type.h3, { color: palette.fg, marginBottom: 2 }]}>{title}</Text> : null}
-        {typeof children === 'string' ? <Text style={type.bodySecondary}>{children}</Text> : children}
+        {isPlainText(children) ? <Text style={type.bodySecondary}>{children}</Text> : children}
       </View>
     </View>
   );

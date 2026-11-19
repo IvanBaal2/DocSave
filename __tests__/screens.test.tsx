@@ -1,0 +1,350 @@
+/**
+ * Smoke tests: every screen renders with realistic data and the native
+ * modules mocked. Catches render crashes (undefined values, bad props,
+ * missing imports) before a device build.
+ */
+import { act, render, screen } from '@testing-library/react-native';
+import React from 'react';
+
+// ── Mocks ────────────────────────────────────────────────────────────────────
+const mockRouter = {
+  push: jest.fn(),
+  replace: jest.fn(),
+  back: jest.fn(),
+  navigate: jest.fn(),
+  dismissTo: jest.fn(),
+  canGoBack: () => true,
+};
+let mockParams: Record<string, string> = {};
+
+jest.mock('expo-router', () => {
+  const R = require('react');
+  const Stack = ({ children }: { children?: React.ReactNode }) => R.createElement(R.Fragment, null, children);
+  Stack.Screen = () => null;
+  Stack.Protected = ({ children }: { children?: React.ReactNode }) => R.createElement(R.Fragment, null, children);
+  return {
+    useRouter: () => mockRouter,
+    router: mockRouter,
+    useLocalSearchParams: () => mockParams,
+    useFocusEffect: (cb: () => void | (() => void)) => R.useEffect(cb, []),
+    Stack,
+  };
+});
+
+jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
+
+jest.mock('expo-camera', () => {
+  const R = require('react');
+  const { View } = require('react-native');
+  const CameraView = R.forwardRef((props: object, ref: unknown) => R.createElement(View, { ...props, ref, testID: 'camera' }));
+  return { CameraView, useCameraPermissions: () => [{ granted: true, canAskAgain: true }, jest.fn()] };
+});
+
+jest.mock('react-native-webview', () => {
+  const R = require('react');
+  const { View } = require('react-native');
+  return { WebView: (p: object) => R.createElement(View, { ...p, testID: 'webview' }) };
+});
+
+jest.mock('@react-native-community/datetimepicker', () => {
+  const R = require('react');
+  const { View } = require('react-native');
+  const Picker = (p: object) => R.createElement(View, p);
+  return { __esModule: true, default: Picker, DateTimePickerAndroid: { open: jest.fn() } };
+});
+
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  SchedulableTriggerInputTypes: { DATE: 'date', TIME_INTERVAL: 'timeInterval' },
+  AndroidImportance: { DEFAULT: 3 },
+  AndroidNotificationVisibility: { PRIVATE: 0 },
+  getPermissionsAsync: jest.fn(async () => ({ granted: false })),
+  requestPermissionsAsync: jest.fn(async () => ({ granted: false })),
+  scheduleNotificationAsync: jest.fn(),
+  cancelAllScheduledNotificationsAsync: jest.fn(),
+  setNotificationChannelAsync: jest.fn(),
+}));
+
+jest.mock('expo-asset', () => {
+  class Asset {
+    localUri = 'file:///x';
+    uri = 'file:///x';
+    static fromModule() {
+      return new Asset();
+    }
+    async downloadAsync() {
+      return this;
+    }
+  }
+  return { Asset };
+});
+
+jest.mock('@expo/vector-icons', () => {
+  const R = require('react');
+  const { Text } = require('react-native');
+  const Icon = ({ name }: { name: string }) => R.createElement(Text, null, '');
+  return { Ionicons: Icon };
+});
+
+jest.mock('expo-file-system', () => ({
+  File: class {
+    async text() {
+      return '';
+    }
+  },
+  Directory: class {},
+  Paths: {},
+}));
+
+jest.mock('../modules/docsave-security', () => ({
+  isNativeSecurityAvailable: true,
+  NativeSecurity: null,
+  checkIntegrity: () => ({ compromised: false, emulator: false, reasons: [] }),
+  excludeFromBackup: () => true,
+  recognizeText: jest.fn(async () => ({ width: 1, height: 1, lines: [] })),
+  recognizeBest: jest.fn(async () => ({ width: 1, height: 1, lines: [], rotation: 0 })),
+  cropJpeg: jest.fn(async (b: string) => b),
+  rotateJpeg: jest.fn(async (b: string) => b),
+  readLastCrash: () => null,
+  clearLastCrash: () => {},
+  nativeErrorCode: () => undefined,
+  sortLines: (l: unknown[]) => l,
+}));
+
+const PNG_1PX =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+const documents = [
+  {
+    id: 'd1',
+    name: 'Passport Ivan Lorence Bongon',
+    categoryId: 'identity',
+    docType: 'passport',
+    expiryDate: '2031-09-23',
+    description: 'Passport · Ivan Lorence Bongon · expires 23 Sep 2031',
+    fields: [
+      { key: 'fullName', label: 'Full name', value: 'Ivan Lorence Bongon', status: 'recognized' },
+      { key: 'expiryDate', label: 'Expiry date', value: '2031-09-23', status: 'recognized' },
+    ],
+    pages: [{ id: 'p1', label: 'Photo page', mimeType: 'image/png', size: 1000 }],
+    createdAt: Date.now() - 1000,
+    updatedAt: Date.now() - 1000,
+  },
+  {
+    id: 'd2',
+    name: 'Driving Licence — IVAN',
+    categoryId: 'identity',
+    docType: 'driving_licence',
+    expiryDate: '2020-01-01',
+    pages: [
+      { id: 'p2', label: 'Front', mimeType: 'image/jpeg', size: 2000 },
+      { id: 'p3', label: 'Back', mimeType: 'image/jpeg', size: 2000 },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+  {
+    id: 'd3',
+    name: 'Contract',
+    categoryId: 'personal',
+    docType: 'contract',
+    pages: [{ id: 'p4', label: 'File', mimeType: 'application/pdf', size: 5000 }],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+];
+
+const mockVault = {
+  status: 'unlocked',
+  meta: { version: 1, vaultId: 'v', createdAt: 0, unlockMode: 'pin_or_bio', pinLength: 6, bioBinding: 'device-check' },
+  settings: {
+    autoLockSeconds: 30,
+    hideSensitivePreviews: true,
+    reauthForDocuments: false,
+    wipeAfterFailedAttempts: false,
+    blockOnCompromisedDevice: true,
+    notificationsEnabled: false,
+    expiryReminders: true,
+    identityReminders: true,
+    travelReminders: true,
+    reminderLeadDays: 30,
+    notificationDetail: 'generic',
+    diagnosticsEnabled: false,
+    acceptedTermsVersion: '1.1',
+    acceptedPrivacyVersion: '1.1',
+    protectionInfoSeen: false,
+  },
+  index: { version: 1, documents, customCategories: [] },
+  integrity: { compromised: false, emulator: false, reasons: [] },
+  integrityAcknowledged: true,
+  acknowledgeIntegrity: jest.fn(),
+  biometrics: { available: true, enrolled: true, label: 'Face or fingerprint', icon: 'finger-print-outline' },
+  attempts: { failed: 0, lockedUntil: 0 },
+  twoFactorPending: false,
+  initializeVault: jest.fn(async () => ({})),
+  enterVault: jest.fn(),
+  unlockWithPin: jest.fn(async () => ({ ok: true })),
+  unlockWithBiometrics: jest.fn(async () => ({ ok: false, error: '' })),
+  lock: jest.fn(),
+  addDocument: jest.fn(),
+  updateDocument: jest.fn(),
+  deleteDocument: jest.fn(),
+  readPage: jest.fn(async () => PNG_1PX),
+  addCategory: jest.fn(),
+  deleteCategory: jest.fn(),
+  deleteAllDocuments: jest.fn(),
+  destroyVault: jest.fn(),
+  verifyPin: jest.fn(async () => true),
+  changePin: jest.fn(async () => true),
+  setUnlockMode: jest.fn(async () => true),
+  updateSettings: jest.fn(),
+  runExternal: (fn: () => Promise<unknown>) => fn(),
+  markAuthenticated: jest.fn(),
+  recentlyAuthenticated: () => true,
+  touch: jest.fn(),
+};
+
+jest.mock('../src/vault/VaultContext', () => ({
+  useVault: () => mockVault,
+  VaultProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+jest.mock('../src/security/ReauthProvider', () => ({
+  useReauth: () => ({ authenticate: async () => true, requestPin: async () => '480317' }),
+  ReauthProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+const mockOnboarding = {
+  recoveryAcknowledged: true,
+  termsAccepted: true,
+  privacyAccepted: true,
+  pin: '480317',
+  unlockMode: 'pin_or_bio',
+  set: jest.fn(),
+};
+jest.mock('../app/onboarding/_layout', () => ({
+  __esModule: true,
+  default: () => null,
+  useOnboarding: () => mockOnboarding,
+  ONBOARDING_STEPS: 3,
+}));
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+async function renderScreen(load: () => { default: React.ComponentType }, params: Record<string, string> = {}) {
+  mockParams = params;
+  const Screen = load().default;
+  await act(async () => {
+    render(<Screen />);
+  });
+  // let effects and promises settle
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 10));
+  });
+}
+
+beforeEach(() => jest.clearAllMocks());
+
+// ── Screens ──────────────────────────────────────────────────────────────────
+describe('setup screens', () => {
+  test('welcome', async () => {
+    await renderScreen(() => require('../app/onboarding/index'));
+    expect(screen.getByText('Get started')).toBeTruthy();
+  });
+  test('face / fingerprint step', async () => {
+    await renderScreen(() => require('../app/onboarding/biometrics'));
+    expect(screen.getByText('Use face or fingerprint')).toBeTruthy();
+  });
+  test('backup PIN', async () => {
+    await renderScreen(() => require('../app/onboarding/pin'));
+    expect(screen.getByText('Backup PIN')).toBeTruthy();
+  });
+  test('terms and privacy', async () => {
+    await renderScreen(() => require('../app/onboarding/terms'));
+    expect(screen.getByText('Terms & Conditions')).toBeTruthy();
+    await renderScreen(() => require('../app/onboarding/privacy'));
+    expect(screen.getByText('Privacy Policy')).toBeTruthy();
+  });
+  test('finish creates the vault and confirms', async () => {
+    await renderScreen(() => require('../app/onboarding/finish'));
+    expect(mockVault.initializeVault).toHaveBeenCalled();
+    expect(await screen.findByText('Your vault is ready')).toBeTruthy();
+  });
+});
+
+describe('lock screen', () => {
+  test('renders keypad and auto-prompts biometrics', async () => {
+    await renderScreen(() => require('../app/lock'));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 500));
+    });
+    expect(screen.getByText('Vault locked')).toBeTruthy();
+    expect(mockVault.unlockWithBiometrics).toHaveBeenCalled();
+  });
+});
+
+describe('vault screens', () => {
+  test('dashboard', async () => {
+    await renderScreen(() => require('../app/(vault)/index'));
+    expect(screen.getByText('Add Document')).toBeTruthy();
+    expect(screen.getByText('My IDs')).toBeTruthy();
+    expect(screen.getByText('Passport Ivan Lorence Bongon')).toBeTruthy();
+    // old names lose the dash
+    expect(screen.getByText('Driving Licence IVAN')).toBeTruthy();
+  });
+  test('document type picker', async () => {
+    await renderScreen(() => require('../app/(vault)/add'));
+    expect(screen.getByText('Most important IDs')).toBeTruthy();
+    expect(screen.getByText('Loyalty Card')).toBeTruthy();
+  });
+  test('search', async () => {
+    await renderScreen(() => require('../app/(vault)/search'));
+    expect(screen.getByText('Passport Ivan Lorence Bongon')).toBeTruthy();
+  });
+  test('category', async () => {
+    await renderScreen(() => require('../app/(vault)/category/[id]'), { id: 'identity' });
+    expect(screen.getByText('Identity Documents')).toBeTruthy();
+  });
+  test('scan screen opens the guided camera', async () => {
+    await renderScreen(() => require('../app/(vault)/scan'), { type: 'national_id' });
+    expect(screen.getByTestId('camera')).toBeTruthy();
+  });
+  test('document viewer: image page', async () => {
+    await renderScreen(() => require('../app/(vault)/document/[id]'), { id: 'd1' });
+    expect(mockVault.readPage).toHaveBeenCalledWith('p1');
+    expect(screen.getByText('Rotate')).toBeTruthy();
+  });
+  test('document viewer: two-sided document', async () => {
+    await renderScreen(() => require('../app/(vault)/document/[id]'), { id: 'd2' });
+    expect(screen.getByText('Front')).toBeTruthy();
+    expect(screen.getByText('Back')).toBeTruthy();
+  });
+  test('document viewer: PDF', async () => {
+    await renderScreen(() => require('../app/(vault)/document/[id]'), { id: 'd3' });
+    expect(mockVault.readPage).toHaveBeenCalledWith('p4');
+  });
+  test('document viewer: missing document', async () => {
+    await renderScreen(() => require('../app/(vault)/document/[id]'), { id: 'nope' });
+    expect(screen.getByText('This document no longer exists.')).toBeTruthy();
+  });
+});
+
+describe('settings screens', () => {
+  const pages: [string, string, Record<string, string>][] = [
+    ['../app/(vault)/settings/index', 'Settings', {}],
+    ['../app/(vault)/settings/security', 'Unlock method', { section: 'unlock' }],
+    ['../app/(vault)/settings/security', 'Automatic lock', { section: 'autolock' }],
+    ['../app/(vault)/settings/security', 'Document protection', { section: 'access' }],
+    ['../app/(vault)/settings/change-pin', 'Change PIN', {}],
+    ['../app/(vault)/settings/privacy', 'Privacy settings', {}],
+    ['../app/(vault)/settings/notifications', 'Push notifications', {}],
+    ['../app/(vault)/settings/about', 'About Docsave', {}],
+    ['../app/(vault)/settings/terms', 'Terms & Conditions', {}],
+    ['../app/(vault)/settings/privacy-policy', 'Privacy Policy', {}],
+    ['../app/(vault)/settings/protection', 'How Docsave protects you', {}],
+    ['../app/(vault)/settings/danger', 'Destroy vault', { action: 'destroy' }],
+  ];
+  test.each(pages)('%s', async (path, title, params) => {
+    await renderScreen(() => require(path), params);
+    expect(screen.getAllByText(title).length).toBeGreaterThan(0);
+  });
+});

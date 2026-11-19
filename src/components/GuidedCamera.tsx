@@ -72,6 +72,7 @@ export function GuidedCamera({
   const [torch, setTorch] = useState(false);
   const [slow, setSlow] = useState(false);
   const [ocrProblem, setOcrProblem] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [pictureSize, setPictureSize] = useState<string | undefined>();
   const [portrait, setPortrait] = useState(!!docType.portrait);
   // Flash: off while previewing; automatic (fires only when it is dark) for the final photo.
@@ -217,6 +218,20 @@ export function GuidedCamera({
     setLayout({ width, height });
   };
 
+  if (cameraError) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <Ionicons name="camera-reverse-outline" size={48} color={colors.warning} />
+        <Text style={[type.h2, { marginTop: spacing.lg, textAlign: 'center' }]}>Camera not available</Text>
+        <Text style={[type.bodySecondary, { textAlign: 'center', marginVertical: spacing.md }]}>
+          {`${cameraError} Another app may be using it. You can import a photo or file instead.`}
+        </Text>
+        {onImport ? <Button title="Import a photo or file" icon="images-outline" onPress={onImport} style={{ alignSelf: 'stretch' }} /> : null}
+        <Button title="Close" variant="ghost" onPress={onClose} style={{ alignSelf: 'stretch', marginTop: spacing.sm }} />
+      </SafeAreaView>
+    );
+  }
+
   if (!permission?.granted) {
     return (
       <SafeAreaView style={styles.center}>
@@ -251,6 +266,7 @@ export function GuidedCamera({
         flash={torch ? 'off' : flash}
         animateShutter={false}
         pictureSize={pictureSize}
+        onMountError={(e) => setCameraError(e?.message || 'The camera could not be started.')}
         onCameraReady={async () => {
           try {
             const sizes = await cam.current?.getAvailablePictureSizesAsync();

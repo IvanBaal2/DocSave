@@ -14,7 +14,7 @@
     "ios": "expo run:ios",
     "prebuild": "expo prebuild --clean",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest --testTimeout=60000",
     "postinstall": "node scripts/bundle-pdfjs.js",
     "icons": "node scripts/generate-icons.js",
     "build:android": "eas build -p android --profile production",
@@ -63,6 +63,7 @@
   },
   "devDependencies": {
     "@react-native/jest-preset": "^0.88.1",
+    "@testing-library/react-native": "^14.1.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",

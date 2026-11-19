@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+
 import React from 'react';
 import { Text, View } from 'react-native';
-import { Button, Card, FadeIn, Header, Screen, StepDots, type IconName } from '../../src/components/ui';
-import { colors, spacing, type } from '../../src/theme/theme';
-import { ONBOARDING_STEPS } from './_layout';
+import { Card, FadeIn, Header, Screen, type IconName } from '../../../src/components/ui';
+import { colors, spacing, type } from '../../../src/theme/theme';
+
 
 const POINTS: { icon: IconName; title: string; body: string }[] = [
   {
@@ -29,11 +29,11 @@ const POINTS: { icon: IconName; title: string; body: string }[] = [
   },
 ];
 
-export default function Storage() {
-  const router = useRouter();
+export default function Protection() {
+
   return (
-    <Screen footer={<Button title="Continue" onPress={() => router.push('/onboarding/recovery')} />}>
-      <Header title="Local encrypted storage" right={<StepDots step={2} total={ONBOARDING_STEPS} />} />
+    <Screen>
+      <Header title="How Docsave protects you" />
       <Text style={[type.bodySecondary, { marginBottom: spacing.lg }]}>
         Docsave works like a safe that only exists on this phone.
       </Text>

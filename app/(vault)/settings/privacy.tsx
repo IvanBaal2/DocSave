@@ -44,14 +44,14 @@ export default function PrivacySettings() {
               ? `Off — unlock with PIN only. ${biometrics.label} data never leaves the secure hardware.`
               : `On (${mode === 'pin_and_bio' ? 'two-factor' : `${biometrics.label} or PIN`}). Docsave only learns whether verification succeeded.`
           }
-          onPress={() => router.push('/settings/security')}
+          onPress={() => router.push({ pathname: '/settings/security', params: { section: 'unlock' } })}
         />
         <SettingRow
           icon="timer-outline"
           title="Automatic locking"
           subtitle="Erases the decryption key from memory when the app is left"
           value={autoLockLabel(settings.autoLockSeconds)}
-          onPress={() => router.push('/settings/security')}
+          onPress={() => router.push({ pathname: '/settings/security', params: { section: 'autolock' } })}
         />
       </SettingsGroup>
 

@@ -15,7 +15,7 @@ import type { DocField, PendingPage } from '../../src/vault/types';
 import { useVault } from '../../src/vault/VaultContext';
 import { formatBytes } from '../../src/utils/format';
 
-type Page = PendingPage & { lines: string[]; barcode?: string };
+type Page = PendingPage & { lines: string[]; barcode?: string; ocrError?: string };
 type Phase = 'camera' | 'flip' | 'reading' | 'review' | 'saving';
 
 export default function ScanDocument() {
@@ -38,6 +38,7 @@ export default function ScanDocument() {
   const [notes, setNotes] = useState('');
   const [keyDate, setKeyDate] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
+  const [showText, setShowText] = useState(false);
   const flip = useRef(new Animated.Value(0)).current;
 
   const requiredSlots = docType.optionalFrom ?? docType.slots.length;
@@ -76,7 +77,14 @@ export default function ScanDocument() {
   }
 
   function onCaptured(side: CapturedSide) {
-    const page: Page = { label: cameraLabel, mimeType: 'image/jpeg', base64: side.base64, lines: side.lines, barcode: side.barcode };
+    const page: Page = {
+      label: cameraLabel,
+      mimeType: 'image/jpeg',
+      base64: side.base64,
+      lines: side.lines,
+      barcode: side.barcode,
+      ocrError: side.ocrError,
+    };
     const list = sortPages([...pages.filter((p) => p.label !== cameraLabel), page]);
     setPages(list);
     if (extraction) {
@@ -132,14 +140,15 @@ export default function ScanDocument() {
       }
       setPhase('reading');
       let lines: string[] = [];
+      let ocrError: string | undefined;
       if (picked.base64 && isNativeSecurityAvailable && picked.mimeType.startsWith('image/')) {
         try {
-          lines = (await recognizeText(picked.base64)).lines.map((l) => l.text);
-        } catch {
-          lines = [];
+          lines = (await recognizeText(picked.base64, 2400)).lines.map((l) => l.text);
+        } catch (e) {
+          ocrError = (e as Error)?.message || 'Text recognition failed';
         }
       }
-      const list = sortPages([...pages.filter((p) => p.label !== label), { ...picked, lines }]);
+      const list = sortPages([...pages.filter((p) => p.label !== label), { ...picked, lines, ocrError }]);
       setPages(list);
       if (extraction) runExtraction(list);
       else afterAdd(list);
@@ -249,6 +258,7 @@ export default function ScanDocument() {
   }
 
   const recognised = fields.filter((f) => f.status === 'recognized').length;
+  const totalLines = pages.reduce((n, p) => n + p.lines.length, 0);
   const missing = fields.filter((f) => f.status === 'missing').length;
   const nextExtra = `Page ${pages.filter((p) => /^Page \d+$/.test(p.label)).length + 1}`;
 
@@ -270,9 +280,13 @@ export default function ScanDocument() {
         </Notice>
       ) : (
         <Notice tone="warning" title="No details recognised">
-          {isNativeSecurityAvailable
-            ? 'The text could not be read clearly. You can retake the photo, type the details, or save the document as it is.'
-            : 'On-device recognition is not available in this build. You can type the details or save as it is.'}
+          {pages.find((p) => p.ocrError)
+            ? `Text recognition failed on this phone: ${pages.find((p) => p.ocrError)?.ocrError}. You can type the details or save the document as it is.`
+            : !isNativeSecurityAvailable
+              ? 'On-device recognition is not available in this build. You can type the details or save as it is.'
+              : totalLines > 0
+                ? `${totalLines} lines of text were read, but none matched this document type. Check that you chose the right type, retake the photo in good light, or type the details.`
+                : 'No text could be read. Retake the photo closer, flat and without glare, or type the details.'}
         </Notice>
       )}
 
@@ -367,6 +381,18 @@ export default function ScanDocument() {
       ) : null}
 
       <TextField label="Notes (optional)" value={notes} onChangeText={setNotes} multiline maxLength={1000} placeholder="Private notes, encrypted" />
+      {totalLines > 0 ? (
+        <Pressable onPress={() => setShowText((v) => !v)} accessibilityRole="button" style={{ marginBottom: spacing.md }}>
+          <Text style={[type.caption, { color: colors.primaryBright }]}>
+            {showText ? 'Hide' : 'Show'} the text read from the scan ({totalLines} lines)
+          </Text>
+          {showText ? (
+            <Text style={[type.caption, { marginTop: spacing.sm, fontFamily: 'monospace', color: colors.textSecondary }]}>
+              {pages.map((p) => `— ${p.label} —\n${p.lines.join('\n')}`).join('\n\n')}
+            </Text>
+          ) : null}
+        </Pressable>
+      ) : null}
       {error ? <Notice tone="danger">{error}</Notice> : null}
       <Notice tone="success" title="Private by design">
         Images and details are encrypted with AES-256-GCM on this device. Recognition ran on this phone; nothing was

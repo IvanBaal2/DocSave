@@ -22,7 +22,7 @@ export function useOnboarding(): Ctx {
   return c;
 }
 
-export const ONBOARDING_STEPS = 8;
+export const ONBOARDING_STEPS = 7;
 
 export default function OnboardingLayout() {
   const [state, setState] = useState<OnboardingState>({

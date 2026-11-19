@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { BOTTOM_NAV_HEIGHT, BottomNav } from '../../../src/components/BottomNav';
 import { Header, Screen, SectionTitle, SettingRow, SettingsGroup } from '../../../src/components/ui';
 import { useReauth } from '../../../src/security/ReauthProvider';
@@ -21,9 +21,9 @@ export default function SettingsHome() {
     const pin = await requestPin(on ? `Enter your PIN to enable ${biometrics.label}` : `Enter your PIN to disable ${biometrics.label}`);
     if (!pin) return;
     try {
-      await vault.setUnlockMode(on ? 'pin_or_bio' : 'pin', pin);
-    } catch {
-      // Biometric prompt cancelled – mode unchanged.
+      await vault.setUnlockMode(on ? 'pin_or_bio' : 'pin', pin, true);
+    } catch (e) {
+      Alert.alert('Not changed', (e as Error)?.message || 'The face / fingerprint check did not complete.');
     }
   }
 
@@ -35,33 +35,50 @@ export default function SettingsHome() {
       <SectionTitle>Security</SectionTitle>
       <SettingsGroup>
         <SettingRow
-          icon="shield-checkmark-outline"
-          title="Security settings"
-          subtitle="Unlock method, re-authentication, device checks"
-          onPress={() => router.push('/settings/security')}
-        />
-        <SettingRow icon="keypad-outline" title="Change PIN" onPress={() => router.push('/settings/change-pin')} />
-        <SettingRow
           icon={biometrics.icon}
           title={biometrics.label}
           subtitle={
-            !biometrics.enrolled
-              ? 'Not set up on this device'
+            !biometrics.available
+              ? 'Not available on this phone'
               : mode === 'pin_and_bio'
                 ? `Two-factor: ${biometrics.label} + PIN`
                 : bioOn
-                  ? 'Enabled'
-                  : 'Disabled'
+                  ? 'On — unlock without typing your PIN'
+                  : 'Off — tap to unlock without typing your PIN'
           }
           toggle={bioOn}
           onToggle={toggleBiometrics}
-          disabled={!biometrics.enrolled && !bioOn}
+          disabled={!biometrics.available && !bioOn}
         />
+        <SettingRow
+          icon="lock-open-outline"
+          title="Unlock method"
+          value={mode === 'pin' ? 'PIN' : mode === 'pin_and_bio' ? 'Two-factor' : 'Biometric or PIN'}
+          onPress={() => router.push({ pathname: '/settings/security', params: { section: 'unlock' } })}
+        />
+        <SettingRow icon="keypad-outline" title="Change PIN" onPress={() => router.push('/settings/change-pin')} />
         <SettingRow
           icon="timer-outline"
           title="Automatic lock"
           value={autoLockLabel(vault.settings.autoLockSeconds)}
-          onPress={() => router.push('/settings/security')}
+          onPress={() => router.push({ pathname: '/settings/security', params: { section: 'autolock' } })}
+        />
+        <SettingRow
+          icon="document-lock-outline"
+          title="Document protection"
+          subtitle="Confirm before viewing, erase after failed PINs"
+          onPress={() => router.push({ pathname: '/settings/security', params: { section: 'access' } })}
+        />
+        <SettingRow
+          icon="phone-portrait-outline"
+          title="Device security check"
+          value={vault.integrity.compromised ? 'At risk' : 'OK'}
+          onPress={() => router.push({ pathname: '/settings/security', params: { section: 'integrity' } })}
+        />
+        <SettingRow
+          icon="shield-checkmark-outline"
+          title="How Docsave protects you"
+          onPress={() => router.push('/settings/protection')}
         />
       </SettingsGroup>
 

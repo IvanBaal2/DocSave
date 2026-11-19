@@ -206,6 +206,7 @@ export async function unlockWithBiometrics(binding: BioBinding = 'hardware'): Pr
       promptMessage: BIO_PROMPT,
       cancelLabel: 'Use PIN',
       disableDeviceFallback: true,
+      biometricsSecurityLevel: 'weak',
     });
     if (!res.success) {
       if (res.error === 'user_cancel' || res.error === 'system_cancel' || res.error === 'user_fallback') {
@@ -305,21 +306,25 @@ async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode
     return 'hardware';
   } catch (e) {
     if (describe(e).toLowerCase().includes('cancel')) throw new BiometricCancelledError();
-    // Device refuses biometric-bound keys: fall back to an OS biometric check.
-    const [enrolled, hw] = await Promise.all([
-      LocalAuthentication.isEnrolledAsync().catch(() => false),
-      LocalAuthentication.hasHardwareAsync().catch(() => false),
-    ]);
-    if (!hw || !enrolled) {
-      throw new BiometricSetupError('No fingerprint or face is enrolled on this device.');
-    }
+    // Device refuses biometric-bound keys: fall back to an OS biometric check
+    // (face or fingerprint). Some phones report an "unknown" status yet show
+    // the system prompt fine, so we simply try it.
     const check = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Confirm to enable biometric unlock',
+      promptMessage: 'Confirm to enable face / fingerprint unlock',
       cancelLabel: 'Cancel',
       disableDeviceFallback: true,
+      biometricsSecurityLevel: 'weak',
     });
     if (!check.success) {
-      throw new BiometricSetupError(`Biometric confirmation failed (${check.error}).`);
+      const reason =
+        check.error === 'not_enrolled'
+          ? 'No face or fingerprint is set up in this phone’s settings.'
+          : check.error === 'not_available'
+            ? 'This phone does not offer face or fingerprint to apps.'
+            : check.error === 'user_cancel' || check.error === 'system_cancel'
+              ? 'The face / fingerprint check was cancelled.'
+              : `Biometric confirmation failed (${check.error}).`;
+      throw new BiometricSetupError(reason);
     }
     await SecureStore.setItemAsync(K.bioSoft, b64.encode(masterKey), PLAIN);
     await safeDelete(K.bio, bioOptions(BIO_PROMPT));

@@ -15,7 +15,7 @@ export default function Terms() {
         <Button title="Accept and continue" disabled={!ob.termsAccepted} onPress={() => router.push('/onboarding/privacy')} />
       }
     >
-      <Header title={TERMS.title} right={<StepDots step={4} total={ONBOARDING_STEPS} />} />
+      <Header title={TERMS.title} right={<StepDots step={3} total={ONBOARDING_STEPS} />} />
       <LegalView doc={TERMS} />
       <CheckRow
         checked={ob.termsAccepted}

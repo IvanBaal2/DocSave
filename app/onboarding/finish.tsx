@@ -85,7 +85,7 @@ export default function Finish() {
       }
     >
       <View style={{ alignItems: 'flex-end' }}>
-        <StepDots step={8} total={ONBOARDING_STEPS} />
+        <StepDots step={7} total={ONBOARDING_STEPS} />
       </View>
       <View style={{ alignItems: 'center', marginTop: spacing.lg }}>
         <PulseShield size={92} />

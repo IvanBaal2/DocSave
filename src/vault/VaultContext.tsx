@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
 import { NativeSecurity, checkIntegrity, type IntegrityReport } from '../../modules/docsave-security';
 import { TamperError, setPbkdf2Provider, setRandomSource, wipe, type WrappedKey } from '../crypto/core';
 import { sniffMime } from '../security/importers';
@@ -76,7 +76,8 @@ type VaultContextValue = {
 
   verifyPin(pin: string): Promise<boolean>;
   changePin(currentPin: string, newPin: string): Promise<boolean>;
-  setUnlockMode(mode: UnlockMode, pin: string): Promise<boolean>;
+  /** Pass verified=true when the PIN was just checked (avoids a second slow key derivation). */
+  setUnlockMode(mode: UnlockMode, pin: string, verified?: boolean): Promise<boolean>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
 
   /** Run a system UI flow (picker, camera permission…) without triggering auto-lock. */
@@ -164,11 +165,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         LocalAuthentication.supportedAuthenticationTypesAsync(),
       ]);
       const face = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+      const finger = types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT);
+      const ios = Platform.OS === 'ios';
       setBiometrics({
         available: hw,
         enrolled,
-        label: face ? 'Face ID' : 'Fingerprint',
-        icon: face ? 'scan-outline' : 'finger-print-outline',
+        label: ios ? (face ? 'Face ID' : 'Touch ID') : face && finger ? 'Face or fingerprint' : face ? 'Face unlock' : 'Fingerprint',
+        icon: face && (ios || !finger) ? 'scan-outline' : 'finger-print-outline',
       });
     } catch {
       // Leave defaults (unavailable).
@@ -531,8 +534,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [verifyPin, runExternal]);
 
-  const setUnlockMode = useCallback(async (mode: UnlockMode, pin: string) => {
-    if (!(await verifyPin(pin))) return false;
+  const setUnlockMode = useCallback(async (mode: UnlockMode, pin: string, verified = false) => {
+    if (!verified && !(await verifyPin(pin))) return false;
     const m = await runExternal(() => Keys.applyUnlockMode(requireKey(), pin, metaRef.current!, mode));
     twoFactorWrapped.current = null;
     setMeta(m);

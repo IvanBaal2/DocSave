@@ -4,7 +4,7 @@ import React, { useEffect, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { FadeIn, Header, Screen, SectionTitle, type IconName } from '../../src/components/ui';
 import { colors, radius, spacing, type } from '../../src/theme/theme';
-import { BUILT_IN_CATEGORIES, type DocTypeDef } from '../../src/vault/categories';
+import { BUILT_IN_CATEGORIES, ESSENTIAL_TYPES, findDocTypeAny, type CategoryDef, type DocTypeDef } from '../../src/vault/categories';
 import { useVault } from '../../src/vault/VaultContext';
 
 /** Step 1 of adding a document: choose what it is. Scanning starts right after. */
@@ -21,7 +21,20 @@ export default function ChooseDocumentType() {
   }, [categoryId]);
 
   const groups = useMemo(() => {
-    const list = [...BUILT_IN_CATEGORIES];
+    const essential = new Set<string>(ESSENTIAL_TYPES);
+    const important: CategoryDef = {
+      id: 'essential',
+      name: 'Most important IDs',
+      icon: 'star-outline',
+      color: '#34D399',
+      description: '',
+      builtIn: true,
+      types: ESSENTIAL_TYPES.map((t) => findDocTypeAny(t)!.type),
+    };
+    const rest = BUILT_IN_CATEGORIES.map((c) => ({ ...c, types: c.types.filter((t) => !essential.has(t.id)) })).filter(
+      (c) => c.types.length,
+    );
+    const list = [important, ...rest];
     const i = list.findIndex((c) => c.id === categoryId);
     if (i > 0) list.unshift(...list.splice(i, 1));
     return list;

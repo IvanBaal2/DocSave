@@ -12,7 +12,20 @@ import type { DocTypeDef } from '../vault/categories';
 import { useVault } from '../vault/VaultContext';
 import { Button, haptic } from './ui';
 
-export type CapturedSide = { base64: string; lines: string[]; barcode?: string };
+export type CapturedSide = { base64: string; lines: string[]; barcode?: string; ocrError?: string };
+
+/** Chooses a photo size that is sharp enough for documents but fast to capture and analyse. */
+function choosePictureSize(sizes: string[]): string | undefined {
+  const parsed = sizes
+    .map((s) => {
+      const m = /^(\d+)x(\d+)$/.exec(s);
+      return m ? { s, w: +m[1], h: +m[2] } : null;
+    })
+    .filter((x): x is { s: string; w: number; h: number } => !!x);
+  const fit = parsed.filter((p) => Math.max(p.w, p.h) <= 3264 && Math.max(p.w, p.h) >= 1600);
+  fit.sort((a, b) => b.w * b.h - a.w * a.h);
+  return fit[0]?.s;
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const BARCODE_TYPES = ['pdf417', 'aztec', 'qr', 'datamatrix'] as const;
@@ -56,6 +69,8 @@ export function GuidedCamera({
   const [capturing, setCapturing] = useState(false);
   const [torch, setTorch] = useState(false);
   const [slow, setSlow] = useState(false);
+  const [ocrProblem, setOcrProblem] = useState<string | null>(null);
+  const [pictureSize, setPictureSize] = useState<string | undefined>();
   const capturingRef = useRef(false);
   const barcodeRef = useRef<string | undefined>(undefined);
   const pulse = useRef(new Animated.Value(0)).current;
@@ -101,17 +116,20 @@ export function GuidedCamera({
       const f = frameRef.current;
       const l = layoutRef.current;
       const base64 =
-        f && l ? await cropJpeg(photo.base64, screenRectToPhoto(f, l, { width: photo.width, height: photo.height }, 0.06), 0.9) : photo.base64;
+        f && l
+          ? await cropJpeg(photo.base64, screenRectToPhoto(f, l, { width: photo.width, height: photo.height }, 0.06), 0.9, 3200)
+          : photo.base64;
       let lines: string[] = [];
+      let ocrError: string | undefined;
       if (autoCapture) {
         try {
-          lines = (await recognizeText(base64)).lines.map((x) => x.text);
-        } catch {
-          lines = [];
+          lines = (await recognizeText(base64, 2400)).lines.map((x) => x.text);
+        } catch (e) {
+          ocrError = (e as Error)?.message || 'Text recognition failed';
         }
       }
       haptic.success();
-      onCaptured({ base64, lines, barcode: barcodeRef.current });
+      onCaptured({ base64, lines, barcode: barcodeRef.current, ocrError });
     } catch {
       setHint('Capture failed — try again');
       capturingRef.current = false;
@@ -135,8 +153,16 @@ export function GuidedCamera({
           deleteTempFile(snap?.uri);
           if (cancelled || capturingRef.current) break;
           if (snap?.base64 && f && l) {
-            const crop = await cropJpeg(snap.base64, screenRectToPhoto(f, l, { width: snap.width, height: snap.height }), 0.7);
-            const lines = (await recognizeText(crop)).lines.map((x) => x.text);
+            const crop = await cropJpeg(snap.base64, screenRectToPhoto(f, l, { width: snap.width, height: snap.height }), 0.7, 1600);
+            let lines: string[];
+            try {
+              lines = (await recognizeText(crop, 1600)).lines.map((x) => x.text);
+              setOcrProblem(null);
+            } catch (e) {
+              setOcrProblem((e as Error)?.message || 'Text recognition failed');
+              await sleep(1500);
+              continue;
+            }
             const r = assessSnapshot({ kind: docType.kind, sideIndex, lines, previousLines: previous, barcode: barcodeRef.current });
             if (cancelled) break;
             setHint(r.message);
@@ -206,7 +232,17 @@ export function GuidedCamera({
         facing="back"
         enableTorch={torch}
         animateShutter={false}
-        onCameraReady={() => setCameraReady(true)}
+        pictureSize={pictureSize}
+        onCameraReady={async () => {
+          try {
+            const sizes = await cam.current?.getAvailablePictureSizesAsync();
+            const best = sizes ? choosePictureSize(sizes) : undefined;
+            if (best) setPictureSize(best);
+          } catch {
+            // keep the default size
+          }
+          setCameraReady(true);
+        }}
         barcodeScannerSettings={docType.kind === 'boarding' ? { barcodeTypes: [...BARCODE_TYPES] } : undefined}
         onBarcodeScanned={docType.kind === 'boarding' ? onBarcode : undefined}
       />
@@ -241,7 +277,11 @@ export function GuidedCamera({
               )}
               <Text style={[type.body, { color: '#fff', marginLeft: 8 }]}>{capturing ? 'Capturing and reading…' : hint}</Text>
             </View>
-            {!autoCapture ? (
+            {ocrProblem ? (
+              <Text style={[type.caption, { color: colors.warning, marginTop: spacing.sm, textAlign: 'center' }]}>
+                {`Automatic reading is not working on this phone (${ocrProblem}). Tap the shutter to capture.`}
+              </Text>
+            ) : !autoCapture ? (
               <Text style={[type.caption, { color: '#ccd', marginTop: spacing.sm, textAlign: 'center' }]}>
                 Automatic capture is not available in this build. Tap the shutter when the document is sharp.
               </Text>

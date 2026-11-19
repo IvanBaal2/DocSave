@@ -43,7 +43,7 @@ export default function CreatePin() {
 
   return (
     <Screen scroll={false}>
-      <Header title="Create your PIN" right={<StepDots step={6} total={ONBOARDING_STEPS} />} />
+      <Header title="Create your PIN" right={<StepDots step={5} total={ONBOARDING_STEPS} />} />
       <View style={{ flex: 1, justifyContent: 'space-between', paddingBottom: spacing.xl }}>
         <View style={{ paddingHorizontal: spacing.xl, alignItems: 'center' }}>
           <Text style={[type.h1, { textAlign: 'center' }]}>{first ? 'Confirm your PIN' : `Choose a ${length}-digit PIN`}</Text>

@@ -145,7 +145,7 @@ describe('devices that refuse biometric-bound keys (e.g. some Huawei phones)', (
     mockOsCheck = false;
     const { masterKey, meta, biometricError } = await Keys.createVaultKeys({ vaultId: 'v1', pin: '480317', unlockMode: 'pin_or_bio' });
     expect(meta.unlockMode).toBe('pin');
-    expect(biometricError).toMatch(/Biometric confirmation failed/);
+    expect(biometricError).toMatch(/cancelled/);
     expect(eq(await Keys.unlockWithPin('480317'), masterKey)).toBe(true);
     expect(mockStore.has('plain:ds.key.biosoft')).toBe(false);
   });

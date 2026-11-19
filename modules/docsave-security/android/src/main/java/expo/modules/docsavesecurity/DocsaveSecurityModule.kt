@@ -106,8 +106,15 @@ class DocsaveSecurityModule : Module() {
 
     // ── On-device text recognition (ML Kit, bundled model, no network) ───────
 
-    AsyncFunction("recognizeText") { imageB64: String, promise: Promise ->
-      val bitmap = decodeUpright(b64d(imageB64))
+    // maxDim: images are downscaled before recognition. Modern phone photos
+    // (50+ MP) are otherwise too large to decode reliably and slow to analyse.
+    AsyncFunction("recognizeText") { imageB64: String, maxDim: Int, promise: Promise ->
+      val bitmap = try {
+        decodeUpright(b64d(imageB64), maxDim)
+      } catch (e: Throwable) {
+        promise.reject(CodedException("ERR_IMAGE", "Image decode failed: ${e.javaClass.simpleName} ${e.message ?: ""}", e))
+        return@AsyncFunction
+      }
       if (bitmap == null) {
         promise.reject(CodedException("ERR_IMAGE", "The image could not be decoded", null))
         return@AsyncFunction
@@ -137,8 +144,8 @@ class DocsaveSecurityModule : Module() {
     }
 
     // Crops a JPEG to a normalised rectangle (0..1) and re-encodes it, in memory.
-    AsyncFunction("cropJpeg") { imageB64: String, x: Double, y: Double, w: Double, h: Double, quality: Double ->
-      val src = decodeUpright(b64d(imageB64))
+    AsyncFunction("cropJpeg") { imageB64: String, x: Double, y: Double, w: Double, h: Double, quality: Double, maxDim: Int ->
+      val src = decodeUpright(b64d(imageB64), maxDim)
         ?: throw CodedException("ERR_IMAGE", "The image could not be decoded", null)
       val left = (x.coerceIn(0.0, 1.0) * src.width).toInt()
       val top = (y.coerceIn(0.0, 1.0) * src.height).toInt()
@@ -197,8 +204,24 @@ class DocsaveSecurityModule : Module() {
     }
   }
 
-  private fun decodeUpright(bytes: ByteArray): Bitmap? {
-    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+  private fun decodeUpright(bytes: ByteArray, maxDim: Int): Bitmap? {
+    // Decode at a reduced size (power-of-two subsampling) so huge photos never
+    // exhaust memory.
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    var sample = 1
+    val longest = maxOf(bounds.outWidth, bounds.outHeight)
+    if (maxDim > 0) {
+      while (longest / (sample * 2) >= maxDim) sample *= 2
+    }
+    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+    var bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) ?: return null
+    if (maxDim > 0 && maxOf(bitmap.width, bitmap.height) > maxDim) {
+      val scale = maxDim.toFloat() / maxOf(bitmap.width, bitmap.height)
+      val scaled = Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
+      if (scaled != bitmap) bitmap.recycle()
+      bitmap = scaled
+    }
     val orientation = try {
       ExifInterface(ByteArrayInputStream(bytes))
         .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)

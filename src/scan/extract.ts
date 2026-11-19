@@ -10,7 +10,7 @@
  */
 import type { DocField } from '../vault/types';
 
-export type ScanKind = 'passport' | 'id-card' | 'licence' | 'boarding' | 'ticket' | 'certificate' | 'generic';
+export type ScanKind = 'passport' | 'id-card' | 'licence' | 'org-id' | 'boarding' | 'ticket' | 'certificate' | 'generic';
 
 export type Extraction = {
   fields: DocField[];
@@ -55,6 +55,14 @@ const TEMPLATES: Record<ScanKind, [string, string][]> = {
     ['expiryDate', 'Expiry date'],
     ['categories', 'Vehicle categories'],
     ['issuingAuthority', 'Issuing authority'],
+  ],
+  'org-id': [
+    ['fullName', 'Full name'],
+    ['documentNumber', 'ID number'],
+    ['organisation', 'Company / school'],
+    ['role', 'Position / course'],
+    ['issueDate', 'Issue date'],
+    ['expiryDate', 'Valid until'],
   ],
   boarding: [
     ['passengerName', 'Passenger'],
@@ -178,7 +186,17 @@ export function mrzClean(line: string): string {
     .toUpperCase()
     .replace(/[«‹(\[{]/g, '<')
     .replace(/\s+/g, '')
-    .replace(/[^A-Z0-9<]/g, '');
+    .replace(/[^A-Z0-9<]/g, '')
+    .replace(/K{3,}/g, (m) => '<'.repeat(m.length)) // OCR often reads <<< as KKK
+    .replace(/<K</g, '<<<');
+}
+
+/** Could this OCR line be part of a machine-readable zone? */
+function mrzCandidate(l: string): boolean {
+  if (l.length < 26 || l.length > 48) return false;
+  if (l.includes('<')) return true;
+  // Some lines (e.g. UAE ID line 1) are filled with digits and contain few or no '<'.
+  return (l.match(/\d/g)?.length ?? 0) >= 8;
 }
 
 function mrzDate(yymmdd: string, kind: 'birth' | 'expiry'): string | undefined {
@@ -303,28 +321,35 @@ function parseTD1(a: string, b: string, c: string): MrzResult {
 
 /** Finds and parses a machine-readable zone among OCR lines. Returns the best candidate. */
 export function findMrz(lines: string[]): MrzResult | undefined {
-  const cleaned = lines.map(mrzClean).filter((l) => l.length >= 26 && (l.match(/</g)?.length ?? 0) >= 2);
-  // OCR sometimes splits one MRZ line in two; also try joining neighbours.
-  const pool = [...cleaned];
-  for (let i = 0; i + 1 < cleaned.length; i++) {
-    const j = cleaned[i] + cleaned[i + 1];
-    if ([30, 36, 44].some((n) => Math.abs(j.length - n) <= 2)) pool.push(j);
+  const cleaned = lines.map(mrzClean).filter(mrzCandidate);
+  // OCR sometimes splits one MRZ line in two pieces: add joined neighbours too.
+  const cand: string[] = [];
+  for (let i = 0; i < cleaned.length; i++) {
+    cand.push(cleaned[i]);
+    const j = cleaned[i] + (cleaned[i + 1] ?? '');
+    if (cleaned[i + 1] && [30, 36, 44].some((n) => Math.abs(j.length - n) <= 2) && cleaned[i].length < 28) cand.push(j);
   }
   let best: MrzResult | undefined;
   const consider = (r: MrzResult) => {
     if (!best || r.validChecks > best.validChecks) best = r;
   };
-  for (let i = 0; i < cleaned.length; i++) {
-    const a44 = fitLen(cleaned[i], 44);
-    const b44 = cleaned[i + 1] ? fitLen(cleaned[i + 1], 44) : null;
-    if (a44 && b44 && /^[PV]/.test(a44)) consider(parseTD3(a44, b44));
-    const a36 = fitLen(cleaned[i], 36);
-    const b36 = cleaned[i + 1] ? fitLen(cleaned[i + 1], 36) : null;
-    if (a36 && b36 && /^[ACIV]/.test(a36)) consider(parseTD2(a36, b36));
-    const a30 = fitLen(cleaned[i], 30);
-    const b30 = cleaned[i + 1] ? fitLen(cleaned[i + 1], 30) : null;
-    const c30 = cleaned[i + 2] ? fitLen(cleaned[i + 2], 30) : null;
-    if (a30 && b30 && c30 && /^[ACI]/.test(a30)) consider(parseTD1(a30, b30, c30));
+  const n = cand.length;
+  for (let i = 0; i < n; i++) {
+    // Allow one stray line between MRZ lines (window of up to 3).
+    for (let j = i + 1; j < Math.min(n, i + 3); j++) {
+      const a44 = fitLen(cand[i], 44);
+      const b44 = fitLen(cand[j], 44);
+      if (a44 && b44 && /^[PV]/.test(a44)) consider(parseTD3(a44, b44));
+      const a36 = fitLen(cand[i], 36);
+      const b36 = fitLen(cand[j], 36);
+      if (a36 && b36 && /^[ACIV]/.test(a36)) consider(parseTD2(a36, b36));
+      for (let k = j + 1; k < Math.min(n, j + 3); k++) {
+        const a30 = fitLen(cand[i], 30);
+        const b30 = fitLen(cand[j], 30);
+        const c30 = fitLen(cand[k], 30);
+        if (a30 && b30 && c30 && /^[ACI]/.test(a30)) consider(parseTD1(a30, b30, c30));
+      }
+    }
   }
   return best && best.validChecks >= 2 ? best : undefined;
 }
@@ -382,10 +407,53 @@ function labelledDate(lines: string[], labels: RegExp): string | undefined {
   return undefined;
 }
 
-const ISSUE_LABEL = /(date of issue|issue date|issued on|fecha de expedici[oó]n|date de d[ée]livrance|data di rilascio|ausstellungsdatum|data de emiss[aã]o)/i;
-const EXPIRY_LABEL = /(date of expiry|expiry date|expires|valid until|v[aá]lido hasta|fecha de caducidad|date d'expiration|scadenza|g[uü]ltig bis|data de validade)/i;
+const ISSUE_LABEL =
+  /(date of issue|issue date|issuing date|issued on|issued|fecha de expedici[oó]n|fecha de emisi[oó]n|date de d[ée]livrance|data di rilascio|ausstellungsdatum|data de emiss[aã]o)/i;
+const EXPIRY_LABEL =
+  /(date of expiry|expiry date|expiry|expires|exp\.? date|valid until|valid thru|validity|v[aá]lido hasta|v[aá]lida hasta|fecha de caducidad|caducidad|vencimiento|date d'expiration|scadenza|g[uü]ltig bis|data de validade)/i;
 const DOB_LABEL = /(date of birth|birth date|fecha de nacimiento|date de naissance|data di nascita|geburtsdatum|data de nascimento)/i;
-const DOCNUM_LABEL = /(document no\.?|document number|card no\.?|n[uú]m(ero)?\.? (de )?(documento|soporte)|n[°º] du document|ausweisnummer)/i;
+const DOCNUM_LABEL =
+  /(document no\.?|document number|card no\.?|card number|id\.? no\.?|id number|identity (card )?number|personal no\.?|employee (id|no\.?|number)|staff (id|no\.?)|student (id|no\.?|number)|matr[ií]cula|n[uú]m(ero)?\.? (de )?(documento|soporte|identidad)|n[°º] du document|ausweisnummer)/i;
+const NAME_LABEL = /^\s*(full name|name|surname and given names?|nombre( y apellidos)?|apellidos y nombre|nom|nome|name\/nom)\b\s*[:.]?/i;
+const NATIONALITY_LABEL = /(nationality|nacionalidad|nationalit[ée]|nazionalit[àa]|staatsangeh[öo]rigkeit)/i;
+const SEX_LABEL = /^\s*(sex|sexo|sexe|gender)\b\s*[:.]?/i;
+const ORG_HINT =
+  /\b(university|universidad|universit[éeàa]|college|school|colegio|escuela|institute|instituto|academy|academia|inc\.?|ltd\.?|llc|corp(oration)?|company|gmbh|s\.?a\.?|s\.?l\.?|group|hospital|ministry|bank)\b/i;
+const ROLE_LABEL = /^\s*(position|job title|designation|department|course|program(me)?|faculty|cargo|puesto|curso|grado)\b\s*[:.]?/i;
+
+/** A plausible person name: letters, spaces, hyphens, apostrophes; 2–6 words. */
+function cleanName(v?: string): string | undefined {
+  if (!v) return undefined;
+  const t = v.replace(/\s+/g, ' ').trim();
+  if (!/^[\p{L}][\p{L} '.-]{2,60}$/u.test(t) || /\d/.test(t)) return undefined;
+  const words = t.split(' ');
+  return words.length >= 2 && words.length <= 6 ? t : undefined;
+}
+
+function labelledAtStart(lines: string[], labels: RegExp): string | undefined {
+  for (let i = 0; i < lines.length; i++) {
+    const m = labels.exec(lines[i]);
+    if (!m) continue;
+    const rest = lines[i].slice(m[0].length).replace(/^[\s:./-]+/, '').trim();
+    if (rest.length >= 1) return rest;
+    const next = lines[i + 1]?.trim();
+    if (next) return next;
+  }
+  return undefined;
+}
+
+function sexValue(v?: string): string | undefined {
+  const t = v?.trim().toUpperCase();
+  if (!t) return undefined;
+  if (/^(M|MALE|H|HOMBRE|MASCULINO|MASCULIN)\b/.test(t)) return 'Male';
+  if (/^(F|FEMALE|MUJER|FEMENINO|FÉMININ|FEMININ)\b/.test(t)) return 'Female';
+  return undefined;
+}
+
+function countryValue(v?: string): string | undefined {
+  const t = v?.replace(/[^\p{L} ]/gu, '').trim();
+  return t && t.length >= 3 && t.length <= 40 ? t : undefined;
+}
 
 // ── Boarding pass barcode (IATA Resolution 792, BCBP) ────────────────────────
 
@@ -492,18 +560,34 @@ export function extract(kind: ScanKind, lines: string[], barcode?: string): Extr
       return { fields, holder: mrz.fullName, keyDate: mrz.expiryDate, source: 'mrz', verified: mrz.validChecks === 3 };
     }
     // No MRZ readable: fall back to clearly labelled values only.
-    const dob = labelled(clean, DOB_LABEL);
-    const exp = labelled(clean, EXPIRY_LABEL);
     const num = labelled(clean, DOCNUM_LABEL);
-    const expiryDate = exp ? parseDate(exp) : undefined;
+    const expiryDate = labelledDate(clean, EXPIRY_LABEL);
+    const fullName = cleanName(labelledAtStart(clean, NAME_LABEL));
+    const nationality = countryValue(labelled(clean, NATIONALITY_LABEL));
+    const sex = sexValue(labelledAtStart(clean, SEX_LABEL));
     const fields = fill(kind, {
-      documentNumber: num?.split(/\s+/)[0],
-      dateOfBirth: dob ? parseDate(dob) : undefined,
+      fullName,
+      documentNumber: num?.replace(/\s+/g, '').match(/^[A-Z0-9-]{4,20}/i)?.[0],
+      nationality,
+      sex,
+      dateOfBirth: labelledDate(clean, DOB_LABEL),
       issueDate,
       expiryDate,
     });
     const any = fields.some((f) => f.status === 'recognized');
-    return { fields, keyDate: expiryDate, source: any ? 'text' : 'none', verified: false };
+    return { fields, holder: fullName, keyDate: expiryDate, source: any ? 'text' : 'none', verified: false };
+  }
+
+  if (kind === 'org-id') {
+    const fullName = cleanName(labelledAtStart(clean, NAME_LABEL));
+    const num = labelled(clean, DOCNUM_LABEL)?.replace(/\s+/g, '').match(/^[A-Z0-9-]{3,20}/i)?.[0];
+    const organisation = clean.find((l) => ORG_HINT.test(l) && l.length <= 70);
+    const role = labelledAtStart(clean, ROLE_LABEL);
+    const expiryDate = labelledDate(clean, EXPIRY_LABEL);
+    const issueDate = labelledDate(clean, ISSUE_LABEL);
+    const fields = fill('org-id', { fullName, documentNumber: num, organisation, role, issueDate, expiryDate });
+    const any = fields.some((f) => f.status === 'recognized');
+    return { fields, holder: fullName, keyDate: expiryDate, source: any ? 'text' : 'none', verified: false };
   }
 
   if (kind === 'licence') {

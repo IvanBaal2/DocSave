@@ -12,10 +12,8 @@ export type LegalSection = { heading: string; body: string[] };
 export type LegalDocument = { title: string; version: string; updated: string; sections: LegalSection[] };
 
 export const PUBLISHER = 'Ivan Baal';
-export const ADDRESS = 'Philippines';
 // Public support / privacy contact shown in the app, website and store listings.
 export const CONTACT = 'ivanlorencebaal@gmail.com';
-const JURISDICTION = 'the Republic of the Philippines';
 
 export const TERMS: LegalDocument = {
   title: 'Terms & Conditions',
@@ -99,12 +97,14 @@ export const TERMS: LegalDocument = {
       ],
     },
     {
-      heading: '11. Governing law',
-      body: [`These Terms are governed by the laws of ${JURISDICTION}, without prejudice to mandatory consumer protection rules of your country of residence.`],
+      heading: '11. Applicable law',
+      body: [
+        'Docsave is a personal tool for anyone who chooses to use it. No government authority operates, sponsors or has access to Docsave or your vault. These Terms apply together with the consumer-protection and data-protection laws of the country where you live; nothing in them limits the rights those laws give you.',
+      ],
     },
     {
       heading: '12. Contact and legal information',
-      body: [`Publisher: ${PUBLISHER} (individual developer), ${ADDRESS}`, `Email: ${CONTACT}`],
+      body: [`Publisher: ${PUBLISHER} (independent developer)`, `Email: ${CONTACT}`],
     },
   ],
 };
@@ -182,7 +182,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'Your privacy rights',
       body: [
         'Because the publisher does not process your personal data, there is no data held by us to access, correct, export or delete. You remain in full control: you can view, rename and delete documents at any time, delete all documents, or permanently destroy the vault from Settings. Uninstalling the app also removes the vault.',
-        'Depending on where you live (for example under the Philippine Data Privacy Act of 2012, the GDPR, UK GDPR or CCPA) you may have additional rights. Contact us with any question.',
+        'Depending on where you live, data-protection laws may give you additional rights. Contact us with any question.',
       ],
     },
     {
@@ -195,7 +195,7 @@ export const PRIVACY: LegalDocument = {
     },
     {
       heading: 'Contact',
-      body: [`Data controller: ${PUBLISHER}, ${ADDRESS}`, `Email: ${CONTACT}`],
+      body: [`Publisher: ${PUBLISHER} (independent developer)`, `Email: ${CONTACT}`],
     },
   ],
 };

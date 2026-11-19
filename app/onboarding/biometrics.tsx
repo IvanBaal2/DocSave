@@ -44,11 +44,11 @@ export default function Biometrics() {
         />
       }
     >
-      <Header title="Biometric unlock" right={<StepDots step={7} total={ONBOARDING_STEPS} />} />
+      <Header title="Biometric unlock" right={<StepDots step={6} total={ONBOARDING_STEPS} />} />
       <View style={{ alignItems: 'center' }}>
         <PulseShield size={72} />
         <Text style={[type.bodySecondary, { textAlign: 'center', marginBottom: spacing.lg }]}>
-          {biometrics.label} is verified by your phone's secure hardware. Docsave never sees your biometric data.
+          Unlock with your face or fingerprint so you don't have to type your PIN every time. Your phone checks it; Docsave never sees your biometric data.
         </Text>
       </View>
       {!usable ? (

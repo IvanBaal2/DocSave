@@ -13,7 +13,7 @@ export default function Privacy() {
     <Screen
       footer={<Button title="Continue" disabled={!ob.privacyAccepted} onPress={() => router.push('/onboarding/pin')} />}
     >
-      <Header title={PRIVACY.title} right={<StepDots step={5} total={ONBOARDING_STEPS} />} />
+      <Header title={PRIVACY.title} right={<StepDots step={4} total={ONBOARDING_STEPS} />} />
       <LegalView doc={PRIVACY} />
       <CheckRow
         checked={ob.privacyAccepted}

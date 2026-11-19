@@ -28,7 +28,7 @@ export default function Recovery() {
         />
       }
     >
-      <Header title="No recovery — by design" right={<StepDots step={3} total={ONBOARDING_STEPS} />} />
+      <Header title="No recovery — by design" right={<StepDots step={2} total={ONBOARDING_STEPS} />} />
       <Notice tone="danger" title="Important — please read" icon="alert-circle">
         Docsave has no account, no recovery email and no recovery server. Nobody — not even the makers of Docsave —
         can open your vault or reset your PIN.

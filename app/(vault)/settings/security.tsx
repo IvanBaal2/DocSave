@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 import { Chip, Header, Notice, Screen, SectionTitle, SettingRow, SettingsGroup } from '../../../src/components/ui';
@@ -9,7 +10,18 @@ import { autoLockLabel } from '../../../src/utils/format';
 
 const AUTO_LOCK = [0, 30, 60, 300];
 
+type Section = 'unlock' | 'autolock' | 'access' | 'integrity';
+const TITLES: Record<Section, string> = {
+  unlock: 'Unlock method',
+  autolock: 'Automatic lock',
+  access: 'Document protection',
+  integrity: 'Device security check',
+};
+
+/** One page per setting: the settings list links to a single section. */
 export default function SecuritySettings() {
+  const { section } = useLocalSearchParams<{ section?: Section }>();
+  const show = (x: Section) => !section || section === x;
   const vault = useVault();
   const { requestPin, authenticate } = useReauth();
   const { settings, biometrics, integrity } = vault;
@@ -23,7 +35,7 @@ export default function SecuritySettings() {
       if (!pin) return;
       setBusy(true);
       try {
-        await vault.setUnlockMode(next, pin);
+        await vault.setUnlockMode(next, pin, true);
       } catch (e) {
         Alert.alert('Not changed', (e as Error)?.message || `${biometrics.label} confirmation was cancelled or failed.`);
       } finally {
@@ -64,13 +76,17 @@ export default function SecuritySettings() {
     );
   }
 
-  const bioUsable = biometrics.available && biometrics.enrolled;
+  // Offer face / fingerprint whenever the phone has the hardware; if the OS
+  // refuses, the error explains why. Two-factor additionally needs enrolment.
+  const bioUsable = biometrics.available;
 
   return (
     <Screen>
-      <Header title="Security settings" />
+      <Header title={section ? TITLES[section] : 'Security'} />
 
-      <SectionTitle>Unlock method</SectionTitle>
+      {show('unlock') ? (
+        <>
+      {!section ? <SectionTitle>Unlock method</SectionTitle> : null}
       <SettingsGroup>
         <SettingRow
           icon="keypad-outline"
@@ -94,7 +110,7 @@ export default function SecuritySettings() {
           subtitle="Both required every time — maximum security"
           toggle={mode === 'pin_and_bio'}
           onToggle={() => changeMode('pin_and_bio')}
-          disabled={busy || !bioUsable}
+          disabled={busy || !bioUsable || !biometrics.enrolled}
         />
       </SettingsGroup>
       {mode === 'pin_or_bio' && vault.meta?.bioBinding === 'device-check' ? (
@@ -107,10 +123,14 @@ export default function SecuritySettings() {
         </Notice>
       ) : null}
       {!bioUsable ? (
-        <Notice tone="info">{`${biometrics.label} is not set up on this device. Enrol it in your device settings to use it with Docsave.`}</Notice>
+        <Notice tone="info">{`${biometrics.label} is not available on this device. Set up a face or fingerprint in your phone settings to use it with Docsave.`}</Notice>
+      ) : null}
+        </>
       ) : null}
 
-      <SectionTitle>Automatic lock</SectionTitle>
+      {show('autolock') ? (
+        <>
+      {!section ? <SectionTitle>Automatic lock</SectionTitle> : null}
       <Text style={[type.bodySecondary, { marginBottom: spacing.md }]}>
         Lock the vault and erase the key from memory after Docsave has been in the background for:
       </Text>
@@ -127,8 +147,12 @@ export default function SecuritySettings() {
       <Text style={[type.caption, { marginTop: spacing.xs }]}>
         The vault also locks after 5 minutes without interaction while open.
       </Text>
+        </>
+      ) : null}
 
-      <SectionTitle>Document access</SectionTitle>
+      {show('access') ? (
+        <>
+      {!section ? <SectionTitle>Document protection</SectionTitle> : null}
       <SettingsGroup>
         <SettingRow
           icon="finger-print-outline"
@@ -150,10 +174,14 @@ export default function SecuritySettings() {
       </SettingsGroup>
       <Notice tone="info" title="Brute-force protection">
         After 5 wrong PINs, Docsave enforces an increasing waiting period (30 s, 1 min, 2 min … up to 1 hour). Each
-        PIN check also runs the memory-hard scrypt function.
+        PIN check also runs 600,000 rounds of PBKDF2 key stretching.
       </Notice>
+        </>
+      ) : null}
 
-      <SectionTitle>Device integrity</SectionTitle>
+      {show('integrity') ? (
+        <>
+      {!section ? <SectionTitle>Device security check</SectionTitle> : null}
       <Notice
         tone={integrity.compromised ? 'warning' : 'success'}
         title={integrity.compromised ? 'Signs of root / jailbreak detected' : 'No compromise detected'}
@@ -171,6 +199,8 @@ export default function SecuritySettings() {
           onToggle={(v) => vault.updateSettings({ blockOnCompromisedDevice: v })}
         />
       </SettingsGroup>
+        </>
+      ) : null}
     </Screen>
   );
 }

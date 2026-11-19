@@ -64,6 +64,7 @@ const MIN_LINES: Record<ScanKind, number> = {
   passport: 4,
   'id-card': 4,
   licence: 4,
+  'org-id': 4,
   boarding: 5,
   ticket: 6,
   certificate: 5,

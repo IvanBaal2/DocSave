@@ -58,7 +58,8 @@ export function ReauthProvider({ children }: { children: React.ReactNode }) {
             promptMessage: reason,
             cancelLabel: 'Use PIN',
             disableDeviceFallback: true,
-            biometricsSecurityLevel: 'strong',
+            // 'weak' also allows face unlock on Android phones whose face sensor is class 2.
+            biometricsSecurityLevel: vault.meta?.bioBinding === 'device-check' ? 'weak' : 'strong',
           }),
         );
         if (res.success) {

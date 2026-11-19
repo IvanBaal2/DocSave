@@ -91,6 +91,8 @@ export type Settings = {
   diagnosticsEnabled: boolean;
   acceptedTermsVersion: string | null;
   acceptedPrivacyVersion: string | null;
+  /** The "how your documents are protected" card was dismissed. */
+  protectionInfoSeen: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -108,6 +110,7 @@ export const DEFAULT_SETTINGS: Settings = {
   diagnosticsEnabled: false,
   acceptedTermsVersion: null,
   acceptedPrivacyVersion: null,
+  protectionInfoSeen: false,
 };
 
 /**

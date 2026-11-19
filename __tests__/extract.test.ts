@@ -238,3 +238,82 @@ describe('auto-capture decisions', () => {
     expect(r.h).toBeCloseTo(400 / 0.5 / 4000);
   });
 });
+
+describe('real-world OCR robustness', () => {
+  // Build a valid TD1 like a UAE Emirates ID: line 1 is filled with digits and has a single '<'.
+  const doc = '104654881';
+  const l1 = `ILARE${doc}${checkDigit(doc)}78419901234567<`;
+  const dob = '900115';
+  const exp = '290301';
+  const l2body = `${dob}${checkDigit(dob)}M${exp}${checkDigit(exp)}PHL<<<<<<<<<<<`;
+  const l2 = `${l2body}${checkDigit(l2body.slice(0, 29)) /* composite not validated */}`.slice(0, 30);
+  const l3 = 'BAAL<<IVAN<LORENCE<<<<<<<<<<<<';
+
+  test('TD1 whose first line contains almost no "<" is found', () => {
+    expect(l1.length).toBe(30);
+    const e = extract('id-card', ['UNITED ARAB EMIRATES', 'Resident Identity Card', l1, l2, l3]);
+    expect(e.source).toBe('mrz');
+    expect(value(e.fields, 'documentNumber')).toBe(doc);
+    expect(value(e.fields, 'fullName')).toBe('Ivan Lorence Baal');
+    expect(value(e.fields, 'dateOfBirth')).toBe('1990-01-15');
+    expect(value(e.fields, 'expiryDate')).toBe('2029-03-01');
+    expect(value(e.fields, 'nationality')).toContain('Philippines');
+  });
+
+  test('a stray line between MRZ lines is tolerated', () => {
+    const e = extract('id-card', [l1, 'SIGNATURE', l2, l3]);
+    expect(e.source).toBe('mrz');
+  });
+
+  test('"<<<" misread as "KKK" is corrected', () => {
+    const noisy = TD3[0].replace(/<{3,}/g, (m) => 'K'.repeat(m.length));
+    expect(findMrz([noisy, TD3[1]])?.fullName).toBe('Anna Maria Eriksson');
+  });
+
+  test('ID front reads labelled name, nationality and sex', () => {
+    const e = extract('id-card', [
+      'Resident Identity Card',
+      'Name: Ivan Lorence Baal',
+      'Nationality: Philippines',
+      'Sex: M',
+      'Date of Birth',
+      '15/01/1990',
+      'ID Number 784-1990-1234567-8',
+    ]);
+    expect(value(e.fields, 'fullName')).toBe('Ivan Lorence Baal');
+    expect(value(e.fields, 'nationality')).toBe('Philippines');
+    expect(value(e.fields, 'sex')).toBe('Male');
+    expect(value(e.fields, 'dateOfBirth')).toBe('1990-01-15');
+    expect(value(e.fields, 'documentNumber')).toBe('784-1990-1234567-8');
+  });
+
+  test('a name label followed by non-name text is not accepted', () => {
+    const e = extract('id-card', ['Name', '12345 ABC 999']);
+    expect(status(e.fields, 'fullName')).toBe('missing');
+  });
+});
+
+describe('employee and student IDs', () => {
+  test('reads name, number, organisation, role and validity', () => {
+    const e = extract('org-id', [
+      'Universidad Europea de Madrid',
+      'STUDENT CARD',
+      'Name: Ana Garcia Lopez',
+      'Student ID: 22004587',
+      'Course: Computer Engineering',
+      'Valid until 31/08/2027',
+    ]);
+    expect(value(e.fields, 'fullName')).toBe('Ana Garcia Lopez');
+    expect(value(e.fields, 'documentNumber')).toBe('22004587');
+    expect(value(e.fields, 'organisation')).toBe('Universidad Europea de Madrid');
+    expect(value(e.fields, 'role')).toBe('Computer Engineering');
+    expect(value(e.fields, 'expiryDate')).toBe('2027-08-31');
+    expect(e.holder).toBe('Ana Garcia Lopez');
+  });
+
+  test('employee badge without labels yields missing fields, not guesses', () => {
+    const e = extract('org-id', ['ACME', 'JOHN', '0042']);
+    expect(status(e.fields, 'fullName')).toBe('missing');
+    expect(status(e.fields, 'organisation')).toBe('missing');
+  });
+});

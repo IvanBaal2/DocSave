@@ -18,7 +18,7 @@ export default function Welcome() {
     <View style={{ flex: 1 }}>
       <LinearGradient colors={gradients.hero} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 520 }} />
       <Screen
-        footer={<Button title="Get started" icon="arrow-forward" onPress={() => router.push('/onboarding/storage')} />}
+        footer={<Button title="Get started" icon="arrow-forward" onPress={() => router.push('/onboarding/recovery')} />}
       >
         <FadeIn style={{ alignItems: 'center', marginTop: spacing.md }}>
           <BrandLogo size={250} />

@@ -141,8 +141,8 @@ public class DocsaveSecurityModule: Module {
 
     // ── On-device text recognition (Apple Vision, no network) ──────────────
 
-    AsyncFunction("recognizeText") { (imageB64: String, promise: Promise) in
-      guard let data = Data(base64Encoded: imageB64), let image = Self.upright(UIImage(data: data)),
+    AsyncFunction("recognizeText") { (imageB64: String, maxDim: Int, promise: Promise) in
+      guard let data = Data(base64Encoded: imageB64), let image = Self.upright(UIImage(data: data), maxDim: maxDim),
             let cg = image.cgImage else {
         promise.reject(ImageException())
         return
@@ -179,8 +179,8 @@ public class DocsaveSecurityModule: Module {
       }
     }
 
-    AsyncFunction("cropJpeg") { (imageB64: String, x: Double, y: Double, w: Double, h: Double, quality: Double) throws -> String in
-      guard let data = Data(base64Encoded: imageB64), let image = Self.upright(UIImage(data: data)),
+    AsyncFunction("cropJpeg") { (imageB64: String, x: Double, y: Double, w: Double, h: Double, quality: Double, maxDim: Int) throws -> String in
+      guard let data = Data(base64Encoded: imageB64), let image = Self.upright(UIImage(data: data), maxDim: maxDim),
             let cg = image.cgImage else { throw ImageException() }
       let W = Double(cg.width), H = Double(cg.height)
       let left = max(0, min(1, x)) * W
@@ -231,14 +231,18 @@ public class DocsaveSecurityModule: Module {
     try data.write(to: url, options: [.atomic, .completeFileProtection])
   }
 
-  /// Redraws the image so pixel data matches its display orientation.
-  private static func upright(_ image: UIImage?) -> UIImage? {
+  /// Redraws the image so pixel data matches its display orientation, and
+  /// downscales it so the longest side is at most maxDim (0 = no limit).
+  private static func upright(_ image: UIImage?, maxDim: Int = 0) -> UIImage? {
     guard let image = image else { return nil }
-    if image.imageOrientation == .up { return image }
+    let longest = max(image.size.width, image.size.height)
+    let scale = (maxDim > 0 && longest > CGFloat(maxDim)) ? CGFloat(maxDim) / longest : 1
+    if image.imageOrientation == .up && scale == 1 { return image }
+    let size = CGSize(width: floor(image.size.width * scale), height: floor(image.size.height * scale))
     let format = UIGraphicsImageRendererFormat.default()
     format.scale = 1
-    return UIGraphicsImageRenderer(size: image.size, format: format).image { _ in
-      image.draw(in: CGRect(origin: .zero, size: image.size))
+    return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+      image.draw(in: CGRect(origin: .zero, size: size))
     }
   }
 

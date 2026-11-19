@@ -8,7 +8,7 @@ import { BOTTOM_NAV_HEIGHT, BottomNav } from '../../src/components/BottomNav';
 import { DocumentCard, iconForDocument } from '../../src/components/DocumentCard';
 import { EmptyState, FadeIn, IconButton, LogoMark, SectionTitle, type IconName } from '../../src/components/ui';
 import { colors, gradients, radius, shadow, spacing, type } from '../../src/theme/theme';
-import { allCategories, findCategory } from '../../src/vault/categories';
+import { ESSENTIAL_TYPES, findCategory, findDocTypeAny } from '../../src/vault/categories';
 import { useVault } from '../../src/vault/VaultContext';
 import { daysUntil, formatTimestamp } from '../../src/utils/format';
 
@@ -16,7 +16,6 @@ export default function Dashboard() {
   const router = useRouter();
   const vault = useVault();
   const { documents, customCategories } = vault.index;
-  const categories = useMemo(() => allCategories(customCategories), [customCategories]);
   const recent = useMemo(() => [...documents].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6), [documents]);
   const mine = useMemo(() => [...documents].sort((a, b) => a.name.localeCompare(b.name)), [documents]);
   const expiring = useMemo(
@@ -102,31 +101,77 @@ export default function Dashboard() {
           </Pressable>
         ) : null}
 
-        {/* 4. Category shortcuts */}
-        <SectionTitle>Categories</SectionTitle>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -spacing.xl }} contentContainerStyle={{ paddingHorizontal: spacing.xl }}>
-          {categories.map((c, i) => {
-            const count = documents.filter((d) => d.categoryId === c.id).length;
+        {/* 4. Essential IDs: one tap to open, or to scan if not saved yet */}
+        <SectionTitle>My IDs</SectionTitle>
+        <View style={styles.idGrid}>
+          {ESSENTIAL_TYPES.map((typeId, i) => {
+            const def = findDocTypeAny(typeId)!;
+            const saved = documents.filter((d) => d.docType === typeId).sort((a, b) => b.updatedAt - a.updatedAt);
+            const doc = saved[0];
+            const days = daysUntil(doc?.expiryDate);
             return (
-              <FadeIn key={c.id} delay={60 + i * 40}>
+              <FadeIn key={typeId} delay={60 + i * 40} style={styles.idCell}>
                 <Pressable
-                  onPress={() => router.push({ pathname: '/category/[id]', params: { id: c.id } })}
+                  onPress={() =>
+                    doc
+                      ? router.push({ pathname: '/document/[id]', params: { id: doc.id } })
+                      : router.push({ pathname: '/scan', params: { type: typeId } })
+                  }
+                  onLongPress={() => router.push({ pathname: '/scan', params: { type: typeId } })}
                   accessibilityRole="button"
-                  accessibilityLabel={`${c.name}, ${count} documents`}
-                  style={({ pressed }) => [styles.catCard, pressed && { backgroundColor: colors.surfacePressed }]}
+                  accessibilityLabel={doc ? `Open ${def.type.label}` : `Scan ${def.type.label}`}
+                  style={({ pressed }) => [
+                    styles.idTile,
+                    doc && { borderColor: colors.primaryBorder },
+                    pressed && { backgroundColor: colors.surfacePressed, transform: [{ scale: 0.98 }] },
+                  ]}
                 >
-                  <View style={[styles.catIcon, { backgroundColor: c.color + '1F' }]}>
-                    <Ionicons name={c.icon as IconName} size={22} color={c.color} />
+                  <View style={[styles.catIcon, { backgroundColor: doc ? colors.primarySoft : colors.surfaceAlt }]}>
+                    <Ionicons name={def.type.icon as IconName} size={22} color={doc ? colors.primaryBright : colors.textSecondary} />
                   </View>
-                  <Text style={[type.h3, { marginTop: spacing.sm, fontSize: 14 }]} numberOfLines={2}>
-                    {c.name.replace(' Documents', '')}
+                  <Text style={[type.h3, { marginTop: spacing.sm, fontSize: 14 }]} numberOfLines={1}>
+                    {def.type.label}
                   </Text>
-                  <Text style={[type.caption, { marginTop: 2 }]}>{count}</Text>
+                  {doc ? (
+                    <Text
+                      style={[type.caption, { marginTop: 2, color: days != null && days <= 90 ? colors.warning : colors.primaryBright }]}
+                      numberOfLines={1}
+                    >
+                      {days != null && days < 0 ? 'Expired' : days != null && days <= 90 ? `Expires in ${days}d` : '✓ Saved · tap to open'}
+                    </Text>
+                  ) : (
+                    <Text style={[type.caption, { marginTop: 2 }]}>+ Scan now</Text>
+                  )}
                 </Pressable>
               </FadeIn>
             );
           })}
-        </ScrollView>
+        </View>
+
+        {documents.length > 0 && !vault.settings.protectionInfoSeen ? (
+          <View style={styles.infoCard}>
+            <Ionicons name="shield-checkmark" size={20} color={colors.primaryBright} />
+            <View style={{ flex: 1, marginLeft: spacing.md }}>
+              <Text style={type.h3}>Your documents are protected</Text>
+              <Text style={[type.caption, { marginTop: 2 }]}>
+                Encrypted with AES-256 on this phone. Never uploaded, never backed up.
+              </Text>
+              <View style={{ flexDirection: 'row', marginTop: spacing.sm }}>
+                <Pressable onPress={() => router.push('/settings/protection')} accessibilityRole="button" hitSlop={8}>
+                  <Text style={[type.caption, { color: colors.primaryBright, fontWeight: '600' }]}>How it works</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => vault.updateSettings({ protectionInfoSeen: true })}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  style={{ marginLeft: spacing.xl }}
+                >
+                  <Text style={[type.caption, { color: colors.textSecondary }]}>Got it</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {/* 5. My documents */}
         <SectionTitle
@@ -235,14 +280,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.warning + '44',
   },
-  catCard: {
-    width: 116,
-    marginRight: spacing.sm,
+  idGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.xs },
+  idCell: { width: '50%', padding: spacing.xs },
+  idTile: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
   },
   catIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   recent: {

@@ -89,6 +89,26 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
         "hint": "Front and back, read automatically"
       },
       {
+        "id": "employee_id",
+        "label": "Employee ID",
+        "icon": "briefcase-outline",
+        "slots": ["Front", "Back"],
+        "optionalFrom": 1,
+        "frame": "card",
+        "kind": "org-id",
+        "hint": "Work badge; back side optional"
+      },
+      {
+        "id": "student_id",
+        "label": "Student ID",
+        "icon": "school-outline",
+        "slots": ["Front", "Back"],
+        "optionalFrom": 1,
+        "frame": "card",
+        "kind": "org-id",
+        "hint": "School or university card"
+      },
+      {
         "id": "other_identity",
         "label": "Other Identity Document",
         "icon": "person-circle-outline",
@@ -370,3 +390,6 @@ export function findDocType(categoryId: string, docType?: string): DocTypeDef | 
   if (!docType) return undefined;
   return BUILT_IN_CATEGORIES.find((c) => c.id === categoryId)?.types.find((t) => t.id === docType);
 }
+
+/** The documents people need most often: shown as quick-access tiles. */
+export const ESSENTIAL_TYPES = ['passport', 'national_id', 'driving_licence', 'employee_id', 'student_id'] as const;

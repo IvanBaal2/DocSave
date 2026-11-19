@@ -13,7 +13,7 @@ export type LegalDocument = { title: string; version: string; updated: string; s
 
 export const PUBLISHER = 'Ivan Baal';
 // Public support / privacy contact shown in the app, website and store listings.
-export const CONTACT = 'Docsave@gmail.com';
+export const CONTACT = 'u2648454771@id.gle';
 
 export const TERMS: LegalDocument = {
   title: 'Terms & Conditions',

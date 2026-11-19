@@ -97,6 +97,25 @@ function describe(e: unknown): string {
   return (caused ? caused[1] : msg).trim();
 }
 
+/**
+ * Reads a PIN-wrapped key back from secure storage and checks that the PIN
+ * opens it and yields the expected master key. Run after every write so a
+ * vault can never be left protected by a PIN that does not open it.
+ */
+async function assertPinOpens(storeKey: string, opts: SecureStore.SecureStoreOptions, pin: string, masterKey: Uint8Array) {
+  const raw = await SecureStore.getItemAsync(storeKey, opts);
+  if (!raw) throw new Error('The PIN key could not be read back from secure storage.');
+  let key: Uint8Array;
+  try {
+    key = await unwrapKeyWithPin(JSON.parse(raw) as WrappedKey, pin, b64);
+  } catch {
+    throw new Error('Self-check failed: the saved key does not open with this PIN. Nothing was changed.');
+  }
+  const same = key.length === masterKey.length && key.every((b, i) => b === masterKey[i]);
+  wipe(key);
+  if (!same) throw new Error('Self-check failed: the saved key does not match the vault key. Nothing was changed.');
+}
+
 // ── Meta & settings ──────────────────────────────────────────────────────────
 
 export async function readMeta(): Promise<VaultMeta | null> {
@@ -153,6 +172,7 @@ export async function createVaultKeys(params: {
   try {
     const wrapped = await wrapKeyWithPin(masterKey, params.pin, b64);
     await SecureStore.setItemAsync(K.pin, JSON.stringify(wrapped), PLAIN);
+    await assertPinOpens(K.pin, PLAIN, params.pin, masterKey);
     await writeMeta(meta);
     await resetAttempts();
   } catch (e) {
@@ -183,10 +203,13 @@ export async function unlockWithPin(pin: string): Promise<Uint8Array> {
   const key = await unwrapKeyWithPin(wrapped, pin, b64);
   if (needsRewrap(wrapped)) {
     // Upgrade legacy / weaker key wrapping transparently (the PIN is correct here).
+    const old = JSON.stringify(wrapped);
     try {
       await SecureStore.setItemAsync(K.pin, JSON.stringify(await wrapKeyWithPin(key, pin, b64)), PLAIN);
+      await assertPinOpens(K.pin, PLAIN, pin, key);
     } catch {
       // Keep the old wrapping; unlocking still works.
+      await SecureStore.setItemAsync(K.pin, old, PLAIN).catch(() => {});
     }
   }
   return key;
@@ -291,7 +314,15 @@ async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode
     return 'hardware';
   }
 
+  // Keep the previous key until the new one is proven to open with this PIN.
+  const previous = await SecureStore.getItemAsync(K.pin, PLAIN);
   await SecureStore.setItemAsync(K.pin, wrapped, PLAIN);
+  try {
+    await assertPinOpens(K.pin, PLAIN, pin, masterKey);
+  } catch (e) {
+    if (previous) await SecureStore.setItemAsync(K.pin, previous, PLAIN);
+    throw e;
+  }
   await safeDelete(K.pinBio, bioOptions(BIO_PROMPT));
   if (mode === 'pin') {
     await safeDelete(K.bio, bioOptions(BIO_PROMPT));

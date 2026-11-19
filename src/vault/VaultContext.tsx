@@ -314,7 +314,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         error: `Too many incorrect PIN attempts. As configured, the vault has been permanently erased.`,
       };
     }
-    return { ok: false, error: 'Incorrect PIN.', lockedUntil: a.lockedUntil };
+    const left = 5 - a.failed;
+    const error =
+      left > 0
+        ? `Incorrect PIN. ${left} ${left === 1 ? 'try' : 'tries'} left before a short wait.`
+        : 'Incorrect PIN. Please wait before trying again.';
+    return { ok: false, error, lockedUntil: a.lockedUntil };
   }
 
   const unlockWithPin = useCallback(
@@ -443,7 +448,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   }
 
   const addDocument = useCallback(async (input: NewDocumentInput) => {
-    const key = requireKey();
+    // Private copy: if the vault auto-locks mid-save (which wipes the live key),
+    // pages already being encrypted still use the correct key.
+    const key = requireKey().slice();
     const now = Date.now();
     const written: string[] = [];
     try {
@@ -472,6 +479,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       written.forEach(Store.deleteBlob);
       throw e;
+    } finally {
+      wipe(key);
     }
   }, []);
 

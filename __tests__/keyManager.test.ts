@@ -183,3 +183,28 @@ describe('brute-force protection', () => {
     expect((await Keys.getAttempts()).failed).toBe(0);
   });
 });
+
+describe('real PBKDF2 provider (like the native module)', () => {
+  const { pbkdf2Sync } = require('crypto');
+  const { setPbkdf2Provider } = jest.requireActual('../src/crypto/core');
+  beforeAll(() =>
+    setPbkdf2Provider(async (pin: string, salt: string, iter: number, len: number) =>
+      pbkdf2Sync(pin, Buffer.from(salt, 'base64'), iter, len, 'sha256').toString('base64'),
+    ),
+  );
+  afterAll(() => setPbkdf2Provider(null));
+
+  test('create → lock → unlock with the same PIN, repeatedly, across mode changes', async () => {
+    const { masterKey, meta } = await Keys.createVaultKeys({ vaultId: 'v1', pin: '482915', unlockMode: 'pin' });
+    for (let i = 0; i < 3; i++) expect(eq(await Keys.unlockWithPin('482915'), masterKey)).toBe(true);
+    mockBiometric = 'unsupported';
+    const m2 = await Keys.applyUnlockMode(masterKey, '482915', meta, 'pin_or_bio');
+    expect(m2.bioBinding).toBe('device-check');
+    expect(eq(await Keys.unlockWithPin('482915'), masterKey)).toBe(true);
+    const m3 = await Keys.applyUnlockMode(masterKey, '482915', m2, 'pin');
+    expect(eq(await Keys.unlockWithPin('482915'), masterKey)).toBe(true);
+    await Keys.changePin(masterKey, '73920154', m3);
+    expect(eq(await Keys.unlockWithPin('73920154'), masterKey)).toBe(true);
+    await expect(Keys.unlockWithPin('482915')).rejects.toThrow();
+  });
+});

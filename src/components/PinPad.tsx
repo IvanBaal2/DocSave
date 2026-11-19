@@ -33,15 +33,35 @@ export function PinPad({ value, onChange, length, onComplete, disabled, errorSig
     ).start();
   }, [errorSignal, shake]);
 
+  // The digits typed so far, updated synchronously on every tap. Building the
+  // PIN from the rendered `value` prop could drop a digit when two taps arrive
+  // before the screen re-renders (fast typing), producing a wrong PIN.
+  const buffer = useRef(value);
+  const completed = useRef(false);
+  useEffect(() => {
+    // Parent cleared or changed the value (e.g. after a wrong PIN): follow it.
+    buffer.current = value;
+    if (value.length < length) completed.current = false;
+  }, [value, length]);
+
   function press(k: (typeof KEYS)[number]) {
     if (disabled) return;
     if (k === 'left') return leftAction?.onPress();
     // Silent keypad: no click sound and no vibration per digit.
-    if (k === 'del') return onChange(value.slice(0, -1));
-    if (value.length >= length) return;
-    const next = value + k;
+    if (k === 'del') {
+      if (completed.current) return;
+      buffer.current = buffer.current.slice(0, -1);
+      onChange(buffer.current);
+      return;
+    }
+    if (completed.current || buffer.current.length >= length) return;
+    const next = buffer.current + k;
+    buffer.current = next;
     onChange(next);
-    if (next.length === length) setTimeout(() => onComplete?.(next), 60);
+    if (next.length === length) {
+      completed.current = true;
+      setTimeout(() => onComplete?.(next), 60);
+    }
   }
 
   return (

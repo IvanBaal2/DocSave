@@ -13,8 +13,8 @@ export type LegalDocument = { title: string; version: string; updated: string; s
 
 export const PUBLISHER = 'Ivan Baal';
 export const ADDRESS = 'Philippines';
-// TODO before publishing: replace with the dedicated Docsave support email.
-export const CONTACT = '[SUPPORT EMAIL]';
+// Public support / privacy contact shown in the app, website and store listings.
+export const CONTACT = 'ivanlorencebaal@gmail.com';
 const JURISDICTION = 'the Republic of the Philippines';
 
 export const TERMS: LegalDocument = {

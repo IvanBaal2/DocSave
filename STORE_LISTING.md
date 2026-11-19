@@ -7,7 +7,7 @@ Copy-paste text and form answers for **Google Play Console** and **App Store Con
 | App name | Docsave |
 | App ID / bundle ID | `ivanbaal2.docsave.com` (permanent) |
 | Developer | Ivan Baal (individual), Philippines |
-| Support email | `[SUPPORT EMAIL]` (create a dedicated address first) |
+| Support email | ivanlorencebaal@gmail.com |
 | Privacy Policy URL | https://ivanbaal2.github.io/DocSave/privacy-policy.html |
 | Terms URL | https://ivanbaal2.github.io/DocSave/terms.html |
 | Website / marketing URL | https://ivanbaal2.github.io/DocSave/ |
@@ -122,7 +122,7 @@ Suggested shots: 1 Welcome screen, 2 Dashboard, 3 Scan passport frame, 4 Add doc
 
 ## Release checklist
 
-- [ ] Create the support email, replace `[SUPPORT EMAIL]` in `src/content/legal.ts`, run `npm run legal:pages`, commit
+- [x] Support email set (ivanlorencebaal@gmail.com)
 - [ ] Enable GitHub Pages: repo **Settings → Pages → Deploy from branch → main / docs**
 - [ ] Optional but recommended: legal review of Terms & Privacy Policy
 - [ ] Google Play Console account ($25) → create app → closed test with 12+ testers for 14 days (new personal accounts)

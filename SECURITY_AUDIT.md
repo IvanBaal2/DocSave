@@ -116,3 +116,5 @@ Contents inspected by unpacking the APK:
 - No `which su` shell execution; no development-launcher activity.
 
 The universal APK is large because it contains every CPU architecture and the OCR models. The Play Store AAB delivers only the parts each phone needs.
+
+Android App Bundle for Google Play / AppGallery, EAS build `a518028f-5cda-4ceb-8f67-8ba5fd1c2320` (profile `production`, versionCode 2, version 1.1.0): built successfully. Signed with the same upload key. The stores re-sign it with their own app-signing key.

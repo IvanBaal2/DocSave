@@ -6,6 +6,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -411,16 +412,36 @@ export function TextField({
 
 // ── Branding ─────────────────────────────────────────────────────────────────
 
+const LOGO_MARK = require('../../assets/brand/logo-mark.png');
+const LOGO_FULL = require('../../assets/brand/logo-full.png');
+
+/** App-icon artwork (folder, documents, shield) used as the in-app logo mark. */
 export function LogoMark({ size = 48 }: { size?: number }) {
   return (
-    <LinearGradient
-      colors={gradients.primary}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ width: size, height: size, borderRadius: size * 0.3, alignItems: 'center', justifyContent: 'center' }}
-    >
-      <Ionicons name="shield-checkmark" size={size * 0.56} color="#03140D" />
-    </LinearGradient>
+    <Image
+      source={LOGO_MARK}
+      accessibilityIgnoresInvertColors
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.24,
+        borderWidth: 1,
+        borderColor: colors.primaryBorder,
+      }}
+    />
+  );
+}
+
+/** Full Docsave logo with wordmark and tagline. */
+export function BrandLogo({ size = 240 }: { size?: number }) {
+  return (
+    <Image
+      source={LOGO_FULL}
+      accessibilityRole="image"
+      accessibilityLabel="Docsave — Your Documents. Your Device. Your Privacy."
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+    />
   );
 }
 

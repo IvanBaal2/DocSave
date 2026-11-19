@@ -26,7 +26,7 @@ const STYLE = `
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 main{max-width:760px;margin:0 auto;padding:40px 20px 80px}
 header{display:flex;align-items:center;gap:14px;margin-bottom:28px}
-.mark{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,#34D399,#059669);display:grid;place-items:center;font-size:24px}
+.mark{width:52px;height:52px;border-radius:14px;border:1px solid rgba(52,211,153,.35)}
 .brand{font-size:26px;font-weight:700;letter-spacing:-.4px}.brand span{color:var(--green)}
 .tag{color:var(--muted);font-size:14px;margin-top:-4px}
 h1{font-size:30px;letter-spacing:-.5px;margin:8px 0 4px}
@@ -44,7 +44,7 @@ const shell = (title, body) => `<!doctype html>
 <title>${esc(title)} — Docsave</title>
 <meta name="description" content="Docsave: a private, offline, encrypted document vault for Android and iOS.">
 <style>${STYLE}</style></head><body><main>
-<header><div class="mark">🛡️</div><div><div class="brand">Doc<span>save</span></div>
+<header><img class="mark" src="logo.png" alt="Docsave logo"><div><div class="brand">Doc<span>save</span></div>
 <div class="tag">Your Documents. Your Device. Your Privacy.</div></div></header>
 ${body}
 <nav><a href="index.html">Home</a><a href="privacy-policy.html">Privacy Policy</a><a href="terms.html">Terms &amp; Conditions</a></nav>

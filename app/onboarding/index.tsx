@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { Button, FadeIn, Logo, PulseShield, Screen, type IconName } from '../../src/components/ui';
+import { BrandLogo, Button, FadeIn, Screen, type IconName } from '../../src/components/ui';
 import { colors, gradients, spacing, type } from '../../src/theme/theme';
 
 const FEATURES: { icon: IconName; title: string; body: string }[] = [
@@ -20,12 +20,9 @@ export default function Welcome() {
       <Screen
         footer={<Button title="Get started" icon="arrow-forward" onPress={() => router.push('/onboarding/storage')} />}
       >
-        <FadeIn style={{ alignItems: 'center', marginTop: spacing.xl }}>
-          <PulseShield size={92} />
-          <View style={{ marginTop: spacing.lg }}>
-            <Logo size={44} />
-          </View>
-          <Text style={[type.display, { textAlign: 'center', marginTop: spacing.xl, fontSize: 26 }]}>
+        <FadeIn style={{ alignItems: 'center', marginTop: spacing.md }}>
+          <BrandLogo size={250} />
+          <Text style={[type.display, { textAlign: 'center', marginTop: spacing.lg, fontSize: 26 }]}>
             Your Documents.{'\n'}Your Device.{'\n'}
             <Text style={{ color: colors.primaryBright }}>Your Privacy.</Text>
           </Text>

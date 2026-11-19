@@ -1,10 +1,9 @@
 /**
- * Generates Docsave's app icon, adaptive icon and splash image as PNG files
- * with zero dependencies (pure Node: zlib + a tiny rasteriser).
+ * Generates the Android/iOS notification icon (white shield silhouette) with
+ * zero dependencies. All other app and store images come from the master logo
+ * via scripts/build-brand-assets.js (npm run brand).
  *
  *   node scripts/generate-icons.js
- *
- * Replace the output with designer artwork before store submission if desired.
  */
 const fs = require('fs');
 const path = require('path');
@@ -102,25 +101,6 @@ function makePixel({ background, w }) {
 
 const out = path.join(__dirname, '..', 'assets');
 fs.mkdirSync(out, { recursive: true });
-fs.writeFileSync(path.join(out, 'icon.png'), png(1024, makePixel({ background: true, w: 0.27 })));
-fs.writeFileSync(path.join(out, 'adaptive-icon.png'), png(1024, makePixel({ background: false, w: 0.2 })));
-fs.writeFileSync(path.join(out, 'splash.png'), png(1024, makePixel({ background: false, w: 0.16 })));
 fs.writeFileSync(path.join(out, 'notification-icon.png'), png(96, (x, y) =>
   inShield(x, y, 0.3) && !inKeyhole(x, y, 0.3) ? [255, 255, 255, 255] : [0, 0, 0, 0]));
-// Store assets: Play icon 512x512 and Play feature graphic 1024x500.
-fs.mkdirSync(path.join(out, 'store'), { recursive: true });
-fs.writeFileSync(path.join(out, 'store', 'play-icon-512.png'), png(512, makePixel({ background: true, w: 0.27 })));
-const ASPECT = 1024 / 500;
-fs.writeFileSync(
-  path.join(out, 'store', 'play-feature-graphic-1024x500.png'),
-  png(1024, (x, y) => {
-    // map to a square coordinate space centred on the shield
-    const sx = 0.5 + (x - 0.5) * ASPECT;
-    let col = mix(NAVY_2, NAVY, Math.min(1, Math.hypot((x - 0.5) * ASPECT, y - 0.4) * 0.9));
-    const glow = Math.max(0, 1 - Math.hypot((x - 0.5) * ASPECT, y - 0.5) / 0.9);
-    col = mix(col, [10, 60, 45], glow * 0.5);
-    if (inShield(sx, y, 0.26)) col = inKeyhole(sx, y, 0.26) ? NAVY : mix(GREEN_B, GREEN_A, y);
-    return [...col, 255];
-  }, 500),
-);
-console.log('Icons written to assets/ and assets/store/');
+console.log('Notification icon written to assets/');

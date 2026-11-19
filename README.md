@@ -124,7 +124,7 @@ Everything needed for the stores (texts, form answers, review notes, screenshot 
 2. **Store privacy labels.** App Store "Data Not Collected" / Google Play Data safety "No data collected / shared" match this implementation. Re-check them if you add any SDK.
 3. **Export compliance (iOS).** Docsave uses standard encryption (AES) to protect user data. Decide on `ITSAppUsesNonExemptEncryption` with your legal adviser and set it in `ios.infoPlist`.
 4. **Security review.** Have an independent mobile-security audit done before launch (see SECURITY.md, "Limitations").
-5. **Artwork.** [scripts/generate-icons.js](scripts/generate-icons.js) generates a clean placeholder icon. Replace it with designer artwork if you like.
+5. **Artwork.** All icons, the splash screen and store graphics are generated from the master logo `assets/brand/docsave-logo-source.png` with `npm run brand`. Replace that file and re-run the command to rebrand.
 
 ---
 

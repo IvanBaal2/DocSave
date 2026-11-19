@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, type } from '../theme/theme';
-import { haptic, type IconName } from './ui';
+import type { IconName } from './ui';
 
 type Props = {
   value: string;
@@ -27,7 +27,7 @@ export function PinPad({ value, onChange, length, onComplete, disabled, errorSig
 
   useEffect(() => {
     if (!errorSignal) return;
-    haptic.error();
+    // visual shake only (silent)
     Animated.sequence(
       [10, -10, 8, -8, 4, 0].map((x) => Animated.timing(shake, { toValue: x, duration: 50, useNativeDriver: true })),
     ).start();
@@ -36,7 +36,7 @@ export function PinPad({ value, onChange, length, onComplete, disabled, errorSig
   function press(k: (typeof KEYS)[number]) {
     if (disabled) return;
     if (k === 'left') return leftAction?.onPress();
-    haptic.tap();
+    // Silent keypad: no click sound and no vibration per digit.
     if (k === 'del') return onChange(value.slice(0, -1));
     if (value.length >= length) return;
     const next = value + k;
@@ -63,6 +63,7 @@ export function PinPad({ value, onChange, length, onComplete, disabled, errorSig
           return (
             <Pressable
               key={k}
+              android_disableSound
               onPress={() => press(k)}
               disabled={disabled || (k === 'del' && value.length === 0)}
               accessibilityRole="button"

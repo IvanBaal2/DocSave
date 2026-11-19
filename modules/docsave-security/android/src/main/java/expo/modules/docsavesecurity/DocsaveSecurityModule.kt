@@ -6,6 +6,7 @@ import android.graphics.Matrix
 import android.os.Build
 import android.os.Debug
 import android.util.Base64
+import android.util.Log
 import androidx.exifinterface.media.ExifInterface
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -18,6 +19,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.SecureRandom
+import java.util.Date
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
@@ -30,11 +32,47 @@ private const val NONCE_BYTES = 12
 private const val HEADER_BYTES = 16 // magic + nonce
 private const val TAG_BYTES = 16
 
+private class DocsaveCrashHandler(
+  private val file: File,
+  private val previous: Thread.UncaughtExceptionHandler?
+) : Thread.UncaughtExceptionHandler {
+  override fun uncaughtException(t: Thread, e: Throwable) {
+    try {
+      file.writeText("${Date()}\nthread: ${t.name}\nandroid: ${Build.VERSION.RELEASE} (${Build.MANUFACTURER} ${Build.MODEL})\n\n${Log.getStackTraceString(e)}".take(12000))
+    } catch (_: Throwable) {
+    }
+    previous?.uncaughtException(t, e)
+  }
+}
+
 class DocsaveSecurityModule : Module() {
   private val random = SecureRandom()
 
   override fun definition() = ModuleDefinition {
     Name("DocsaveSecurity")
+
+    // Crash recorder: keeps the technical stack trace of a native crash in the
+    // app's private storage so it can be shown on the next launch. It never
+    // contains document content.
+    OnCreate {
+      val dir = appContext.reactContext?.filesDir ?: return@OnCreate
+      val file = File(dir, "docsave_last_crash.txt")
+      val previous = Thread.getDefaultUncaughtExceptionHandler()
+      if (previous !is DocsaveCrashHandler) {
+        Thread.setDefaultUncaughtExceptionHandler(DocsaveCrashHandler(file, previous))
+      }
+    }
+
+    Function("readLastCrash") {
+      val dir = appContext.reactContext?.filesDir ?: return@Function null
+      val file = File(dir, "docsave_last_crash.txt")
+      if (file.exists()) file.readText().take(6000) else null
+    }
+
+    Function("clearLastCrash") {
+      val dir = appContext.reactContext?.filesDir ?: return@Function false
+      File(dir, "docsave_last_crash.txt").delete()
+    }
 
     // Android backups are disabled application-wide (allowBackup=false and
     // dataExtractionRules via the withAndroidNoBackup config plugin).

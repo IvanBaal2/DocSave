@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, type } from '../theme/theme';
 import { findCategory, findDocType, findDocTypeAny } from '../vault/categories';
 import type { CustomCategory, DocumentRecord } from '../vault/types';
-import { daysUntil, formatBytes, formatDate } from '../utils/format';
+import { daysUntil, displayName, formatBytes, formatDate } from '../utils/format';
 import type { IconName } from './ui';
 
 export function iconForDocument(doc: DocumentRecord): IconName {
@@ -53,7 +53,7 @@ export function DocumentCard({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${doc.name}, ${dt?.label ?? cat?.name ?? 'document'}`}
+      accessibilityLabel={`${displayName(doc.name)}, ${dt?.label ?? cat?.name ?? 'document'}`}
       style={({ pressed }) => [styles.card, pressed && { backgroundColor: colors.surfacePressed, transform: [{ scale: 0.99 }] }]}
     >
       <View style={[styles.icon, { backgroundColor: (cat?.color ?? colors.primary) + '1F' }]}>
@@ -61,7 +61,7 @@ export function DocumentCard({
       </View>
       <View style={{ flex: 1, marginLeft: spacing.md }}>
         <Text style={type.h3} numberOfLines={1}>
-          {doc.name}
+          {displayName(doc.name)}
         </Text>
         <Text style={[type.caption, { marginTop: 3 }]} numberOfLines={1}>
           {doc.description && doc.description !== (dt?.label ?? '')

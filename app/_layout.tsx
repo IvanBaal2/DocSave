@@ -1,7 +1,8 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, Alert, View } from 'react-native';
+import { clearLastCrash, readLastCrash } from '../modules/docsave-security';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorScreen, installGlobalErrorHandler } from '../src/components/ErrorScreen';
 import { IntegrityWarning } from '../src/components/IntegrityWarning';
@@ -33,6 +34,16 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { status, touch, integrity, integrityAcknowledged } = useVault();
+
+  // If the app closed unexpectedly last time, show the technical reason once
+  // so it can be reported (contains no document data).
+  useEffect(() => {
+    const report = readLastCrash();
+    if (!report) return;
+    clearLastCrash();
+    const firstLines = report.split('\n').filter(Boolean).slice(0, 14).join('\n');
+    setTimeout(() => Alert.alert('Docsave closed unexpectedly last time', `Please send a photo of this message to support. Your documents are safe.\n\n${firstLines}`), 800);
+  }, []);
 
   if (status === 'loading') {
     return (

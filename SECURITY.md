@@ -82,4 +82,4 @@ Each `.enc` file is `"DSV1" ‖ nonce(12) ‖ ciphertext ‖ tag(16)`. Writes go
 
 ## Reporting vulnerabilities
 
-Please report security issues privately to ivanlorencebaal@gmail.com instead of opening a public GitHub issue.
+Please report security issues privately to Docsave@gmail.com instead of opening a public GitHub issue.

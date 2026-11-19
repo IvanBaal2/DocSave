@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { b64 } from '../crypto/base64';
 import { fromUtf8 } from '../crypto/core';
 import { colors, spacing, type } from '../theme/theme';
-import { imageHtml, pdfHtml, textHtml } from './viewerHtml';
+import { pdfHtml } from './viewerHtml';
+import { ZoomableImage } from './ZoomableImage';
 
 export const VIEWABLE_TYPES = [
   'application/pdf',
@@ -47,8 +48,6 @@ export function SecureViewer({ base64, mimeType }: { base64: string; mimeType: s
       const { lib, worker } = loadPdfJs();
       return pdfHtml(base64, lib, worker);
     }
-    if (mime.startsWith('image/')) return imageHtml(base64, mime);
-    if (mime === 'text/plain') return textHtml(fromUtf8(b64.decode(base64)));
     return null;
   }, [base64, mimeType]);
 
@@ -60,6 +59,30 @@ export function SecureViewer({ base64, mimeType }: { base64: string; mimeType: s
     } catch {
       // ignore malformed messages
     }
+  }
+
+  const mime = mimeType.toLowerCase();
+  // Images and text are shown natively (no web view); only PDFs need pdf.js.
+  if (mime.startsWith('image/')) {
+    return (
+      <View style={{ flex: 1 }}>
+        <ZoomableImage base64={base64} mimeType={mime} onError={() => setState({ loading: false, error: 'This image format cannot be displayed on this device.' })} />
+        {state.error ? (
+          <View style={styles.errorBar}>
+            <Text style={[type.caption, { color: colors.warning }]}>{state.error}</Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+  if (mime === 'text/plain') {
+    return (
+      <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
+        <Text style={[type.body, { fontFamily: 'monospace' }]} selectable={false}>
+          {fromUtf8(b64.decode(base64))}
+        </Text>
+      </ScrollView>
+    );
   }
 
   if (!html) {
@@ -82,30 +105,15 @@ export function SecureViewer({ base64, mimeType }: { base64: string; mimeType: s
         onShouldStartLoadWithRequest={(req) => /^(about:|data:|blob:)/.test(req.url)}
         onMessage={onMessage}
         javaScriptEnabled
-        incognito
         cacheEnabled={false}
-        cacheMode="LOAD_NO_CACHE"
         domStorageEnabled={false}
-        thirdPartyCookiesEnabled={false}
-        sharedCookiesEnabled={false}
         allowFileAccess={false}
         allowFileAccessFromFileURLs={false}
         allowUniversalAccessFromFileURLs={false}
         geolocationEnabled={false}
-        javaScriptCanOpenWindowsAutomatically={false}
         setSupportMultipleWindows={false}
         mixedContentMode="never"
-        saveFormDataDisabled
-        allowsLinkPreview={false}
-        allowsBackForwardNavigationGestures={false}
-        dataDetectorTypes="none"
-        textInteractionEnabled={false}
         webviewDebuggingEnabled={false}
-        mediaPlaybackRequiresUserAction
-        allowsInlineMediaPlayback={false}
-        scalesPageToFit
-        bounces={false}
-        overScrollMode="never"
         style={{ backgroundColor: colors.bg }}
         containerStyle={{ backgroundColor: colors.bg }}
         onError={() => setState({ loading: false, error: 'Viewer error' })}

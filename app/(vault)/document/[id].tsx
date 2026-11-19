@@ -14,7 +14,7 @@ import { useReauth } from '../../../src/security/ReauthProvider';
 import { colors, radius, spacing, type } from '../../../src/theme/theme';
 import { allCategories, findCategory, findDocType, findDocTypeAny } from '../../../src/vault/categories';
 import { useVault } from '../../../src/vault/VaultContext';
-import { formatBytes, formatDate, formatTimestamp } from '../../../src/utils/format';
+import { displayName, formatBytes, formatDate, formatTimestamp } from '../../../src/utils/format';
 import { SecureViewer } from '../../../src/viewer/SecureViewer';
 
 export default function DocumentViewer() {
@@ -39,17 +39,27 @@ export default function DocumentViewer() {
     setBytes(null);
   }, []);
 
+  // Latest values in refs so the focus effect below runs once per focus,
+  // not again on every vault state change.
+  const vaultRef = useRef(vault);
+  vaultRef.current = vault;
+  const authRef = useRef(authenticate);
+  authRef.current = authenticate;
+
   const requestAccess = useCallback(async () => {
     if (authInFlight.current) return;
-    if (!vault.settings.reauthForDocuments || vault.recentlyAuthenticated()) {
+    const v = vaultRef.current;
+    if (!v.settings.reauthForDocuments || v.recentlyAuthenticated()) {
       setAuthorized(true);
       return;
     }
     authInFlight.current = true;
-    const ok = await authenticate('Unlock to view this document');
-    authInFlight.current = false;
-    setAuthorized(ok);
-  }, [authenticate, vault]);
+    try {
+      setAuthorized(await authRef.current('Unlock to view this document'));
+    } finally {
+      authInFlight.current = false;
+    }
+  }, []);
 
   // Lock the viewer when the screen loses focus or the app leaves the foreground.
   useFocusEffect(
@@ -79,7 +89,7 @@ export default function DocumentViewer() {
     setLoading(true);
     setError(null);
     clear();
-    vault
+    vaultRef.current
       .readPage(page.id)
       .then((b) => {
         if (cancelled) return;
@@ -112,7 +122,7 @@ export default function DocumentViewer() {
   const dt = findDocType(doc.categoryId, doc.docType);
 
   function confirmDelete() {
-    Alert.alert('Delete document?', `"${doc!.name}" and all its pages will be permanently deleted from this device. This cannot be undone.`, [
+    Alert.alert('Delete document?', `"${displayName(doc!.name)}" and all its pages will be permanently deleted from this device. This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -134,7 +144,7 @@ export default function DocumentViewer() {
         <IconButton icon="chevron-back" accessibilityLabel="Close document" onPress={() => router.back()} />
         <View style={{ flex: 1, marginHorizontal: spacing.md }}>
           <Text style={type.h2} numberOfLines={1}>
-            {doc.name}
+            {displayName(doc.name)}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
             <Ionicons name="lock-closed" size={11} color={colors.primary} />
@@ -213,7 +223,7 @@ export default function DocumentViewer() {
               <Ionicons name={iconForDocument(doc)} size={24} color={cat?.color ?? colors.primaryBright} />
             </View>
             <View style={{ flex: 1, marginLeft: spacing.md }}>
-              <Text style={type.h2}>{doc.name}</Text>
+              <Text style={type.h2}>{displayName(doc.name)}</Text>
               <Text style={type.caption}>{dt?.label ?? cat?.name}</Text>
             </View>
             <ExpiryBadge date={doc.expiryDate} />
@@ -268,7 +278,7 @@ export default function DocumentViewer() {
 function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () => void; docId: string }) {
   const vault = useVault();
   const doc = vault.index.documents.find((d) => d.id === docId);
-  const [name, setName] = useState(doc?.name ?? '');
+  const [name, setName] = useState(displayName(doc?.name ?? ''));
   const [notes, setNotes] = useState(doc?.notes ?? '');
   const [expiry, setExpiry] = useState<string | undefined>(doc?.expiryDate);
   const [categoryId, setCategoryId] = useState(doc?.categoryId ?? 'other');
@@ -278,7 +288,7 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
 
   useEffect(() => {
     if (visible && doc) {
-      setName(doc.name);
+      setName(displayName(doc.name));
       setNotes(doc.notes ?? '');
       setExpiry(doc.expiryDate);
       setCategoryId(doc.categoryId);

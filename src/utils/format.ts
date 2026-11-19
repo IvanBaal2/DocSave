@@ -37,3 +37,8 @@ export function autoLockLabel(seconds: number): string {
   if (seconds < 60) return `After ${seconds} seconds`;
   return `After ${seconds / 60} minute${seconds === 60 ? '' : 's'}`;
 }
+
+/** Document names without separator dashes (older names used "Type — Holder"). */
+export function displayName(name: string): string {
+  return name.replace(/\s+[—–-]\s+/g, ' ').trim();
+}

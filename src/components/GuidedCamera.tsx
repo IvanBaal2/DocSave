@@ -74,6 +74,8 @@ export function GuidedCamera({
   const [ocrProblem, setOcrProblem] = useState<string | null>(null);
   const [pictureSize, setPictureSize] = useState<string | undefined>();
   const [portrait, setPortrait] = useState(!!docType.portrait);
+  // Flash: off while previewing; automatic (fires only when it is dark) for the final photo.
+  const [flash, setFlash] = useState<'off' | 'auto'>('off');
   const wallet = WALLET_KINDS.has(docType.kind);
   const scansBarcodes = docType.kind === 'boarding' || wallet;
   const capturingRef = useRef(false);
@@ -116,7 +118,12 @@ export function GuidedCamera({
     capturingRef.current = true;
     setCapturing(true);
     try {
+      if (!torch) {
+        setFlash('auto');
+        await sleep(120);
+      }
       const photo = await cam.current.takePictureAsync({ quality: 0.85, base64: true, exif: false, shutterSound: false });
+      setFlash('off');
       deleteTempFile(photo?.uri);
       if (!photo?.base64) throw new Error('No image');
       const f = frameRef.current;
@@ -141,7 +148,7 @@ export function GuidedCamera({
       capturingRef.current = false;
       setCapturing(false);
     }
-  }, [autoCapture, onCaptured]);
+  }, [autoCapture, onCaptured, torch]);
 
   // Auto-capture loop.
   useEffect(() => {
@@ -238,6 +245,7 @@ export function GuidedCamera({
         style={StyleSheet.absoluteFill}
         facing="back"
         enableTorch={torch}
+        flash={torch ? 'off' : flash}
         animateShutter={false}
         pictureSize={pictureSize}
         onCameraReady={async () => {

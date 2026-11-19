@@ -9,7 +9,7 @@ import { EmptyState, FadeIn, IconButton, LogoMark, SectionTitle, type IconName }
 import { colors, gradients, radius, shadow, spacing, type } from '../../src/theme/theme';
 import { ESSENTIAL_TYPES, findCategory, findDocTypeAny } from '../../src/vault/categories';
 import { useVault } from '../../src/vault/VaultContext';
-import { daysUntil, formatTimestamp } from '../../src/utils/format';
+import { daysUntil, displayName } from '../../src/utils/format';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -93,7 +93,7 @@ export default function Dashboard() {
           >
             <Ionicons name="alarm-outline" size={18} color={colors.warning} />
             <Text style={[type.bodySecondary, { flex: 1, marginLeft: spacing.sm, color: colors.text }]}>
-              {expiring.length === 1 ? `“${expiring[0].name}” expires soon` : `${expiring.length} documents expire within 90 days`}
+              {expiring.length === 1 ? `“${displayName(expiring[0].name)}” expires soon` : `${expiring.length} documents expire within 90 days`}
             </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </Pressable>

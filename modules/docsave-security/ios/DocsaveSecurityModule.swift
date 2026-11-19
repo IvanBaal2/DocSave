@@ -40,6 +40,10 @@ public class DocsaveSecurityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("DocsaveSecurity")
 
+    // Crash reports on iOS are collected by the system (Settings → Privacy → Analytics).
+    Function("readLastCrash") { () -> String? in nil }
+    Function("clearLastCrash") { () -> Bool in true }
+
     // Marks a file or directory as excluded from iCloud / computer backups.
     Function("excludeFromBackup") { (uri: String) -> Bool in
       var url = Self.fileURL(from: uri)

@@ -21,6 +21,8 @@ type NativeModuleShape = {
   openFile(keyB64: string, aad: string, path: string): Promise<string>;
   recognizeText(imageB64: string, maxDim: number, rotation: number): Promise<OcrResult>;
   cropJpeg(imageB64: string, x: number, y: number, w: number, h: number, quality: number, maxDim: number): Promise<string>;
+  readLastCrash(): string | null;
+  clearLastCrash(): boolean;
 };
 
 const Native = requireOptionalNativeModule<NativeModuleShape>('DocsaveSecurity');
@@ -105,6 +107,23 @@ export async function cropJpeg(
 ) {
   if (!Native) return imageB64;
   return Native.cropJpeg(imageB64, rect.x, rect.y, rect.w, rect.h, quality, maxDim);
+}
+
+/** Technical details of the last native crash (Android), if any. */
+export function readLastCrash(): string | null {
+  try {
+    return Native?.readLastCrash() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearLastCrash(): void {
+  try {
+    Native?.clearLastCrash();
+  } catch {
+    // ignore
+  }
 }
 
 /** Native error codes thrown by sealing / opening functions. */

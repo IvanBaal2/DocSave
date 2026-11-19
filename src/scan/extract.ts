@@ -773,7 +773,7 @@ export function describeDocument(typeLabel: string, fields: { key: string; value
 
 /** Suggested document name from the extraction. */
 export function suggestName(typeLabel: string, holder?: string): string {
-  return holder ? `${typeLabel} — ${holder}` : typeLabel;
+  return holder ? `${typeLabel} ${holder}` : typeLabel;
 }
 
 /** Saved fields plus empty slots for the details this kind of document usually has. */

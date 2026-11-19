@@ -1,0 +1,9 @@
+{
+  "name": "docsave-security",
+  "version": "1.0.0",
+  "description": "Docsave native security helpers: backup exclusion and device integrity checks",
+  "main": "index.ts",
+  "license": "UNLICENSED",
+  "author": "Docsave",
+  "homepage": "https://example.invalid/docsave"
+}

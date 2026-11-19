@@ -1,0 +1,114 @@
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors, spacing, type } from '../theme/theme';
+import { haptic, type IconName } from './ui';
+
+type Props = {
+  value: string;
+  onChange: (v: string) => void;
+  length: number;
+  /** Called once the PIN reaches `length` digits. */
+  onComplete?: (pin: string) => void;
+  disabled?: boolean;
+  /** Increment to trigger a shake animation (wrong PIN). */
+  errorSignal?: number;
+  leftAction?: { icon: IconName; label: string; onPress: () => void };
+};
+
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'left', '0', 'del'] as const;
+
+/**
+ * Custom on-screen keypad. Using our own keypad (instead of the system keyboard)
+ * keeps the PIN away from third-party keyboards, keyboard learning and autofill.
+ */
+export function PinPad({ value, onChange, length, onComplete, disabled, errorSignal = 0, leftAction }: Props) {
+  const shake = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!errorSignal) return;
+    haptic.error();
+    Animated.sequence(
+      [10, -10, 8, -8, 4, 0].map((x) => Animated.timing(shake, { toValue: x, duration: 50, useNativeDriver: true })),
+    ).start();
+  }, [errorSignal, shake]);
+
+  function press(k: (typeof KEYS)[number]) {
+    if (disabled) return;
+    if (k === 'left') return leftAction?.onPress();
+    haptic.tap();
+    if (k === 'del') return onChange(value.slice(0, -1));
+    if (value.length >= length) return;
+    const next = value + k;
+    onChange(next);
+    if (next.length === length) setTimeout(() => onComplete?.(next), 60);
+  }
+
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Animated.View
+        style={[styles.dots, { transform: [{ translateX: shake }] }]}
+        accessibilityLabel={`${value.length} of ${length} digits entered`}
+        accessibilityLiveRegion="polite"
+      >
+        {Array.from({ length }, (_, i) => (
+          <View key={i} style={[styles.dot, i < value.length && styles.dotFilled]} />
+        ))}
+      </Animated.View>
+      <View style={styles.grid}>
+        {KEYS.map((k) => {
+          if (k === 'left' && !leftAction) return <View key={k} style={styles.key} />;
+          const label =
+            k === 'del' ? 'Delete digit' : k === 'left' ? leftAction!.label : `Digit ${k}`;
+          return (
+            <Pressable
+              key={k}
+              onPress={() => press(k)}
+              disabled={disabled || (k === 'del' && value.length === 0)}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              style={({ pressed }) => [
+                styles.key,
+                k !== 'del' && k !== 'left' && styles.keyDigit,
+                pressed && { backgroundColor: colors.surfacePressed, transform: [{ scale: 0.95 }] },
+              ]}
+            >
+              {k === 'del' ? (
+                <Ionicons name="backspace-outline" size={26} color={colors.textSecondary} />
+              ) : k === 'left' ? (
+                <Ionicons name={leftAction!.icon} size={30} color={colors.primaryBright} />
+              ) : (
+                <Text style={styles.digit}>{k}</Text>
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const KEY = 74;
+const styles = StyleSheet.create({
+  dots: { flexDirection: 'row', marginBottom: spacing.xxl, minHeight: 16 },
+  dot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    marginHorizontal: 8,
+  },
+  dotFilled: { backgroundColor: colors.primaryBright, borderColor: colors.primaryBright },
+  grid: { width: KEY * 3 + 48, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  key: {
+    width: KEY,
+    height: KEY,
+    borderRadius: KEY / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  keyDigit: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  digit: { ...type.h1, fontSize: 28, fontWeight: '500' },
+});

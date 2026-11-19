@@ -5,9 +5,9 @@
  *
  *   npm run legal:pages        (Node 23.6+ – imports the .ts file directly)
  *
- * Public URLs once GitHub Pages is enabled (Settings → Pages → main /docs):
- *   https://ivanbaal2.github.io/DocSave/privacy-policy.html
- *   https://ivanbaal2.github.io/DocSave/terms.html
+ * Public URLs (GitHub Pages serves the repo root, so pages live under /docs/):
+ *   https://ivanbaal2.github.io/DocSave/docs/privacy-policy.html
+ *   https://ivanbaal2.github.io/DocSave/docs/terms.html
  */
 import fs from 'node:fs';
 import path from 'node:path';

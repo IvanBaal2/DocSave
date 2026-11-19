@@ -8,9 +8,9 @@ Copy-paste text and form answers for **Google Play Console** and **App Store Con
 | App ID / bundle ID | `ivanbaal2.docsave.com` (permanent) |
 | Developer | Ivan Baal (individual), Philippines |
 | Support email | ivanlorencebaal@gmail.com |
-| Privacy Policy URL | https://ivanbaal2.github.io/DocSave/privacy-policy.html |
-| Terms URL | https://ivanbaal2.github.io/DocSave/terms.html |
-| Website / marketing URL | https://ivanbaal2.github.io/DocSave/ |
+| Privacy Policy URL | https://ivanbaal2.github.io/DocSave/docs/privacy-policy.html |
+| Terms URL | https://ivanbaal2.github.io/DocSave/docs/terms.html |
+| Website / marketing URL | https://ivanbaal2.github.io/DocSave/docs/ |
 | Category | Play: **Productivity** · App Store: **Productivity** (secondary: Utilities) |
 | Price | Free, no in-app purchases, no ads |
 
@@ -123,7 +123,7 @@ Suggested shots: 1 Welcome screen, 2 Dashboard, 3 Scan passport frame, 4 Add doc
 ## Release checklist
 
 - [x] Support email set (ivanlorencebaal@gmail.com)
-- [ ] Enable GitHub Pages: repo **Settings → Pages → Deploy from branch → main / docs**
+- [x] GitHub Pages enabled (served from the repo root; site pages live under /docs/)
 - [ ] Optional but recommended: legal review of Terms & Privacy Policy
 - [ ] Google Play Console account ($25) → create app → closed test with 12+ testers for 14 days (new personal accounts)
 - [ ] Apple Developer Program ($99/yr) → App Store Connect → new app with bundle ID `ivanbaal2.docsave.com`

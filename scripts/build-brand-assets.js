@@ -103,7 +103,7 @@ async function main() {
     .composite([{ input: corner, blend: 'dest-in' }])
     .png({ compressionLevel: 9 })
     .toFile(A('brand', 'logo-full.png'));
-  await sharp(A('brand', 'logo-full.png')).png({ compressionLevel: 9 }).toFile(A('splash.png'));
+
 
   // Play Store feature graphic 1024×500: artwork left, wordmark + tagline right.
   const art = await feathered(ART, 470, 28);
@@ -122,6 +122,17 @@ async function main() {
     .removeAlpha()
     .png()
     .toFile(A('store', 'play-feature-graphic-1024x500.png'));
+
+  // Splash icon: artwork only, transparent background (the splash background
+  // colour comes from app.config.js), sized for the Android 12+ splash icon.
+  {
+    const size = 1024;
+    const art = await feathered(ART, 760, 40);
+    await sharp({ create: { width: size, height: size, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+      .composite([{ input: art.buffer, left: Math.round((size - art.width) / 2), top: Math.round((size - art.height) / 2) }])
+      .png()
+      .toFile(A('splash-icon.png'));
+  }
 
   // Website logo.
   fs.mkdirSync(path.join(root, 'docs'), { recursive: true });

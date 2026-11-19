@@ -6,6 +6,18 @@ export type UnlockMode =
   /** Two factors: Face ID / fingerprint AND PIN are both required. */
   | 'pin_and_bio';
 
+/** How biometric unlock is protected: OS-enforced key (hardware) or OS prompt + Keystore-encrypted key. */
+export type BioBinding = 'hardware' | 'device-check';
+
+/** A piece of information recognised (or entered) for a document. Stored encrypted in the index. */
+export type DocField = {
+  key: string;
+  label: string;
+  value: string;
+  /** recognized: read by on-device OCR / barcode; missing: could not be read; edited/manual: typed by the user. */
+  status: 'recognized' | 'missing' | 'edited' | 'manual';
+};
+
 export type PageRecord = {
   id: string;
   /** e.g. "Front", "Back", "Page 2". */
@@ -24,6 +36,10 @@ export type DocumentRecord = {
   /** ISO date (YYYY-MM-DD) – expiry date, or travel date for travel documents. */
   expiryDate?: string;
   pages: PageRecord[];
+  /** Information recognised from the scan and reviewed by the user. */
+  fields?: DocField[];
+  /** Automatically generated summary, e.g. "Passport · Anna Maria Eriksson · expires 15 Apr 2032". */
+  description?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -49,6 +65,7 @@ export type VaultMeta = {
   createdAt: number;
   unlockMode: UnlockMode;
   pinLength: number;
+  bioBinding?: BioBinding;
 };
 
 export type NotificationDetail = 'generic' | 'category';
@@ -93,11 +110,16 @@ export const DEFAULT_SETTINGS: Settings = {
   acceptedPrivacyVersion: null,
 };
 
-/** Plaintext page waiting to be encrypted (only ever held in memory). */
+/**
+ * A page waiting to be encrypted: either base64 data held in memory (camera
+ * scans) or a temporary file from a system picker (deleted after sealing).
+ */
 export type PendingPage = {
   label: string;
   mimeType: string;
-  bytes: Uint8Array;
+  base64?: string;
+  fileUri?: string;
+  size?: number;
 };
 
 export type NewDocumentInput = {
@@ -106,5 +128,7 @@ export type NewDocumentInput = {
   docType?: string;
   notes?: string;
   expiryDate?: string;
+  fields?: DocField[];
+  description?: string;
   pages: PendingPage[];
 };

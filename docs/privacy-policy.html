@@ -23,7 +23,7 @@ ul{color:var(--muted);padding-left:20px}</style></head><body><main>
 <header><img class="mark" src="logo.png" alt="Docsave logo"><div><div class="brand">Doc<span>save</span></div>
 <div class="tag">Your Documents. Your Device. Your Privacy.</div></div></header>
 <h1>Privacy Policy</h1>
-<p class="meta">Version 1.0 · Last updated 19 November 2026</p>
+<p class="meta">Version 1.1 · Last updated 19 November 2026</p>
 <h2>Summary</h2>
 <p>Docsave does not collect, receive, store or share your documents or personal data. Everything stays encrypted on your device. We have no servers that could receive it.</p>
 <h2>Documents are stored locally</h2>
@@ -31,6 +31,9 @@ ul{color:var(--muted);padding-left:20px}</style></head><body><main>
 <h2>Documents are encrypted on the device</h2>
 <p>Each document is encrypted with AES-256-GCM before being written to storage. The vault index (names, notes, dates) is encrypted the same way. The encryption key never leaves your device and is protected by the Apple Keychain or Android Keystore.</p>
 <p>Docsave does not create unencrypted thumbnails. Documents are decrypted only in memory while you view them.</p>
+<h2>On-device recognition</h2>
+<p>When you scan a document, Docsave recognises its text on your phone to fill in details such as the holder name, document number, dates or flight details. On Android this uses the Google ML Kit text-recognition model that is bundled inside the app; on iPhone it uses Apple’s Vision framework. Both run offline. Images and recognised text are never sent to Docsave, Google, Apple or any other service.</p>
+<p>Recognised details are stored only inside your encrypted vault, together with the scan, and are not added to any system search index.</p>
 <h2>No automatic cloud uploads or backups</h2>
 <p>Docsave never uploads documents. On Android, release builds of Docsave do not even request the Internet permission, so the operating system blocks all network access. Docsave’s data is excluded from iCloud, Google and computer backups and from device-to-device transfers.</p>
 <h2>No account registration</h2>
@@ -40,7 +43,7 @@ ul{color:var(--muted);padding-left:20px}</style></head><body><main>
 <h2>Diagnostics</h2>
 <p>Diagnostics sharing is turned off by default. If you turn it on, Docsave can generate a short technical report (app version, operating system version, device security check results and the number of stored documents). The report never contains document names or contents and is only sent if you choose to share it yourself via your device’s share menu.</p>
 <h2>How device permissions are used</h2>
-<p>Camera — only to scan or photograph documents you choose to add. Photos are encrypted immediately and the temporary camera file is deleted.</p>
+<p>Camera — only to scan the documents you choose to add, including reading boarding-pass barcodes. While you scan, small preview images are analysed in memory to detect the document; every temporary camera file is deleted immediately and the final image is encrypted before it is saved.</p>
 <p>Photos / files — only the specific items you pick are read, encrypted and stored. Temporary copies created by the system picker are deleted.</p>
 <p>Face ID / fingerprint — handled entirely by your operating system. Docsave never receives your biometric data; it only learns whether authentication succeeded.</p>
 <p>Notifications — optional local reminders scheduled on your device. They never contain document names, numbers or contents. No push token is created and nothing is sent to a server.</p>

@@ -5,7 +5,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import type { PendingPage } from '../vault/types';
-import { consumeTempFile, deleteTempFile } from './secureTemp';
+import { deleteTempFile } from './secureTemp';
 
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -47,6 +47,10 @@ function checkSize(size: number | null | undefined) {
   }
 }
 
+/**
+ * Picks a file. The system copies it into the app cache; that temporary copy is
+ * handed directly to native encryption and deleted right after (see writeBlob).
+ */
 export async function importFromFiles(label: string): Promise<PendingPage | null> {
   const res = await DocumentPicker.getDocumentAsync({
     type: ['application/pdf', 'image/*', 'text/plain', '*/*'],
@@ -61,23 +65,24 @@ export async function importFromFiles(label: string): Promise<PendingPage | null
     deleteTempFile(a.uri);
     throw e;
   }
-  const bytes = await consumeTempFile(a.uri);
-  checkSize(bytes.length);
-  return { label, bytes, mimeType: sniffMime(bytes, guessMime(a.name, a.mimeType)) };
+  return { label, fileUri: a.uri, size: a.size ?? undefined, mimeType: guessMime(a.name, a.mimeType) };
 }
 
+/** Picks a photo, returned as base64 in memory (for OCR); the temp copy is deleted. */
 export async function importFromPhotos(label: string): Promise<PendingPage | null> {
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     quality: 0.9,
     exif: false,
-    base64: false,
+    base64: true,
     allowsMultipleSelection: false,
     preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
   });
   if (res.canceled || !res.assets?.[0]) return null;
   const a = res.assets[0];
-  const bytes = await consumeTempFile(a.uri);
-  checkSize(bytes.length);
-  return { label, bytes, mimeType: sniffMime(bytes, a.mimeType ?? 'image/jpeg') };
+  deleteTempFile(a.uri);
+  if (!a.base64) throw new ImportError('The photo could not be read.');
+  const size = Math.floor((a.base64.length * 3) / 4);
+  checkSize(size);
+  return { label, base64: a.base64, size, mimeType: a.mimeType ?? 'image/jpeg' };
 }

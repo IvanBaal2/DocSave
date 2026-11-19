@@ -12,6 +12,8 @@ export default function VaultLayout() {
       }}
     >
       <Stack.Screen name="add" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="scan" options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="settings/index" options={{ animation: 'fade' }} />
     </Stack>
   );
 }

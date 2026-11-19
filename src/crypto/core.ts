@@ -4,7 +4,7 @@
  * Pure TypeScript, no React Native imports, so it is unit-testable in Node.
  * Primitives come from the audited @noble libraries:
  *   - AES-256-GCM            @noble/ciphers
- *   - HKDF-SHA256, scrypt    @noble/hashes
+ *   - HKDF-SHA256, PBKDF2    @noble/hashes (PBKDF2 runs natively in the app)
  *
  * Randomness is injected (see setRandomSource) so the app uses the platform
  * CSPRNG (expo-crypto → SecRandomCopyBytes / SecureRandom) and tests use Node's.
@@ -25,6 +25,7 @@
 import { gcm } from '@noble/ciphers/aes.js';
 import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
+import { pbkdf2Async } from '@noble/hashes/pbkdf2.js';
 import { scryptAsync } from '@noble/hashes/scrypt.js';
 
 export const KEY_BYTES = 32;
@@ -157,18 +158,22 @@ export function decryptJson<T>(masterKey: Uint8Array, objectId: string, blob: Ui
   }
 }
 
-// ── Key wrapping with a PIN (scrypt KEK) ─────────────────────────────────────
+// ── Key wrapping with a PIN ──────────────────────────────────────────────────
+//
+// v2 (current): KEK = PBKDF2-HMAC-SHA256(PIN, 128-bit salt, 600 000 iterations),
+//               computed by the platform's native crypto (fast on phones).
+// v1 (legacy):  KEK = scrypt(N=2^15, r=8, p=1) in JavaScript. Still accepted for
+//               unlocking, then transparently re-wrapped as v2.
+// The wrapped key additionally lives inside the Keychain / Android Keystore,
+// so an attacker must defeat the secure hardware before an offline PIN search.
 
+export const PBKDF2_ITERATIONS = 600_000;
+const MIN_PBKDF2_ITERATIONS = 100_000;
+
+/** Legacy scrypt parameters (v1 wrapped keys only). */
 export type KdfParams = { N: number; r: number; p: number };
 
-/**
- * scrypt N=2^15, r=8, p=1 (32 MiB). The wrapped key additionally sits inside
- * the hardware-backed Keychain / Keystore, so an attacker must defeat the
- * secure element before even starting an offline PIN search.
- */
-export const DEFAULT_KDF: KdfParams = { N: 2 ** 15, r: 8, p: 1 };
-
-export type WrappedKey = {
+export type WrappedKeyV1 = {
   v: 1;
   kdf: 'scrypt';
   N: number;
@@ -179,9 +184,42 @@ export type WrappedKey = {
   ct: string; // base64 (ciphertext || tag)
 };
 
+export type WrappedKeyV2 = {
+  v: 2;
+  kdf: 'pbkdf2-sha256';
+  iter: number;
+  salt: string;
+  nonce: string;
+  ct: string;
+};
+
+export type WrappedKey = WrappedKeyV1 | WrappedKeyV2;
+
+type B64 = { encode: (b: Uint8Array) => string; decode: (s: string) => Uint8Array };
+
+/** PBKDF2 provider: (pin, saltB64, iterations, length) → key (base64). */
+type Pbkdf2Provider = (pin: string, saltB64: string, iterations: number, length: number) => Promise<string>;
+let pbkdf2Provider: Pbkdf2Provider | null = null;
+
+/** The app installs the native implementation at startup; tests use the JS fallback. */
+export function setPbkdf2Provider(fn: Pbkdf2Provider | null): void {
+  pbkdf2Provider = fn;
+}
+
 const WRAP_AAD = utf8('docsave/wrap/pin/v1');
 
-async function deriveKek(pin: string, salt: Uint8Array, params: KdfParams): Promise<Uint8Array> {
+async function deriveKekV2(pin: string, salt: Uint8Array, iterations: number, b64: B64): Promise<Uint8Array> {
+  if (!Number.isInteger(iterations) || iterations < MIN_PBKDF2_ITERATIONS || iterations > 10_000_000) {
+    throw new Error('Docsave crypto: KDF parameters out of the allowed range');
+  }
+  const password = pin.normalize('NFKC');
+  if (pbkdf2Provider) {
+    return b64.decode(await pbkdf2Provider(password, b64.encode(salt), iterations, KEY_BYTES));
+  }
+  return pbkdf2Async(sha256, utf8(password), salt, { c: iterations, dkLen: KEY_BYTES, asyncTick: 15 });
+}
+
+async function deriveKekV1(pin: string, salt: Uint8Array, params: KdfParams): Promise<Uint8Array> {
   if (params.N < 2 ** 14 || params.N > 2 ** 20 || params.r < 8 || params.p < 1) {
     throw new Error('Docsave crypto: KDF parameters out of the allowed range');
   }
@@ -198,19 +236,19 @@ async function deriveKek(pin: string, salt: Uint8Array, params: KdfParams): Prom
 export async function wrapKeyWithPin(
   masterKey: Uint8Array,
   pin: string,
-  b64: { encode: (b: Uint8Array) => string },
-  params: KdfParams = DEFAULT_KDF,
-): Promise<WrappedKey> {
+  b64: B64,
+  iterations: number = PBKDF2_ITERATIONS,
+): Promise<WrappedKeyV2> {
   assertKey(masterKey);
   const salt = randomBytes(16);
-  const kek = await deriveKek(pin, salt, params);
+  const kek = await deriveKekV2(pin, salt, iterations, b64);
   try {
     const nonce = randomBytes(NONCE_BYTES);
     const ct = gcm(kek, nonce, WRAP_AAD).encrypt(masterKey);
     return {
-      v: 1,
-      kdf: 'scrypt',
-      ...params,
+      v: 2,
+      kdf: 'pbkdf2-sha256',
+      iter: iterations,
       salt: b64.encode(salt),
       nonce: b64.encode(nonce),
       ct: b64.encode(ct),
@@ -220,20 +258,45 @@ export async function wrapKeyWithPin(
   }
 }
 
+/** True when a wrapped key uses an older or weaker format and should be re-wrapped. */
+export function needsRewrap(w: WrappedKey): boolean {
+  return w.v !== 2 || w.iter < PBKDF2_ITERATIONS;
+}
+
 /** Returns the master key, or throws TamperError when the PIN is wrong. */
-export async function unwrapKeyWithPin(
-  wrapped: WrappedKey,
-  pin: string,
-  b64: { decode: (s: string) => Uint8Array },
-): Promise<Uint8Array> {
-  if (wrapped?.v !== 1 || wrapped.kdf !== 'scrypt') throw new FormatError('Unsupported key wrapping format.');
-  const kek = await deriveKek(pin, b64.decode(wrapped.salt), wrapped);
+export async function unwrapKeyWithPin(wrapped: WrappedKey, pin: string, b64: B64): Promise<Uint8Array> {
+  let kek: Uint8Array;
+  if (wrapped?.v === 2 && wrapped.kdf === 'pbkdf2-sha256') {
+    kek = await deriveKekV2(pin, b64.decode(wrapped.salt), wrapped.iter, b64);
+  } else if (wrapped?.v === 1 && wrapped.kdf === 'scrypt') {
+    kek = await deriveKekV1(pin, b64.decode(wrapped.salt), wrapped);
+  } else {
+    throw new FormatError('Unsupported key wrapping format.');
+  }
   try {
     const key = gcm(kek, b64.decode(wrapped.nonce), WRAP_AAD).decrypt(b64.decode(wrapped.ct));
     assertKey(key);
     return key;
   } catch {
     throw new TamperError('Incorrect PIN.');
+  } finally {
+    wipe(kek);
+  }
+}
+
+/** Test helper: create a legacy v1 (scrypt) wrapped key. */
+export async function wrapKeyWithPinLegacyV1(
+  masterKey: Uint8Array,
+  pin: string,
+  b64: B64,
+  params: KdfParams = { N: 2 ** 14, r: 8, p: 1 },
+): Promise<WrappedKeyV1> {
+  const salt = randomBytes(16);
+  const kek = await deriveKekV1(pin, salt, params);
+  try {
+    const nonce = randomBytes(NONCE_BYTES);
+    const ct = gcm(kek, nonce, WRAP_AAD).encrypt(masterKey);
+    return { v: 1, kdf: 'scrypt', ...params, salt: b64.encode(salt), nonce: b64.encode(nonce), ct: b64.encode(ct) };
   } finally {
     wipe(kek);
   }

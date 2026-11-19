@@ -19,7 +19,7 @@ const JURISDICTION = 'the Republic of the Philippines';
 
 export const TERMS: LegalDocument = {
   title: 'Terms & Conditions',
-  version: '1.0',
+  version: '1.1',
   updated: '19 November 2026',
   sections: [
     {
@@ -73,6 +73,12 @@ export const TERMS: LegalDocument = {
       ],
     },
     {
+      heading: '7a. Automatic recognition',
+      body: [
+        'Docsave can read information such as names, document numbers and dates from your scans using text recognition that runs entirely on your device. Recognition can be incomplete or wrong. Docsave marks anything it could not read and never fills in guessed values, but you are responsible for checking the details before saving.',
+      ],
+    },
+    {
       heading: '8. Notifications',
       body: [
         'Reminders are optional, created locally on your device and never include document names, numbers or contents. Delivery depends on your operating system and settings and is not guaranteed.',
@@ -105,7 +111,7 @@ export const TERMS: LegalDocument = {
 
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
-  version: '1.0',
+  version: '1.1',
   updated: '19 November 2026',
   sections: [
     {
@@ -125,6 +131,13 @@ export const PRIVACY: LegalDocument = {
       body: [
         'Each document is encrypted with AES-256-GCM before being written to storage. The vault index (names, notes, dates) is encrypted the same way. The encryption key never leaves your device and is protected by the Apple Keychain or Android Keystore.',
         'Docsave does not create unencrypted thumbnails. Documents are decrypted only in memory while you view them.',
+      ],
+    },
+    {
+      heading: 'On-device recognition',
+      body: [
+        'When you scan a document, Docsave recognises its text on your phone to fill in details such as the holder name, document number, dates or flight details. On Android this uses the Google ML Kit text-recognition model that is bundled inside the app; on iPhone it uses Apple’s Vision framework. Both run offline. Images and recognised text are never sent to Docsave, Google, Apple or any other service.',
+        'Recognised details are stored only inside your encrypted vault, together with the scan, and are not added to any system search index.',
       ],
     },
     {
@@ -152,7 +165,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'How device permissions are used',
       body: [
-        'Camera — only to scan or photograph documents you choose to add. Photos are encrypted immediately and the temporary camera file is deleted.',
+        'Camera — only to scan the documents you choose to add, including reading boarding-pass barcodes. While you scan, small preview images are analysed in memory to detect the document; every temporary camera file is deleted immediately and the final image is encrypted before it is saved.',
         'Photos / files — only the specific items you pick are read, encrypted and stored. Temporary copies created by the system picker are deleted.',
         'Face ID / fingerprint — handled entirely by your operating system. Docsave never receives your biometric data; it only learns whether authentication succeeded.',
         'Notifications — optional local reminders scheduled on your device. They never contain document names, numbers or contents. No push token is created and nothing is sent to a server.',

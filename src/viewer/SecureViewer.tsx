@@ -38,19 +38,19 @@ function loadPdfJs() {
  * incognito, no cache, no file access, no storage, no navigation, no network
  * (CSP). Pinch-to-zoom is supported for images and PDFs.
  */
-export function SecureViewer({ bytes, mimeType }: { bytes: Uint8Array; mimeType: string }) {
+export function SecureViewer({ base64, mimeType }: { base64: string; mimeType: string }) {
   const [state, setState] = useState<{ loading: boolean; error?: string }>({ loading: true });
 
   const html = useMemo(() => {
     const mime = mimeType.toLowerCase();
     if (mime === 'application/pdf') {
       const { lib, worker } = loadPdfJs();
-      return pdfHtml(b64.encode(bytes), lib, worker);
+      return pdfHtml(base64, lib, worker);
     }
-    if (mime.startsWith('image/')) return imageHtml(b64.encode(bytes), mime);
-    if (mime === 'text/plain') return textHtml(fromUtf8(bytes));
+    if (mime.startsWith('image/')) return imageHtml(base64, mime);
+    if (mime === 'text/plain') return textHtml(fromUtf8(b64.decode(base64)));
     return null;
-  }, [bytes, mimeType]);
+  }, [base64, mimeType]);
 
   function onMessage(e: WebViewMessageEvent) {
     try {

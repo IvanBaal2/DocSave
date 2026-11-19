@@ -2,12 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, type } from '../theme/theme';
-import { findCategory, findDocType } from '../vault/categories';
+import { findCategory, findDocType, findDocTypeAny } from '../vault/categories';
 import type { CustomCategory, DocumentRecord } from '../vault/types';
 import { daysUntil, formatBytes, formatDate } from '../utils/format';
 import type { IconName } from './ui';
 
 export function iconForDocument(doc: DocumentRecord): IconName {
+  const known = findDocTypeAny(doc.docType);
+  if (known) return known.type.icon as IconName;
   const t = doc.docType ?? '';
   if (t === 'passport') return 'globe-outline';
   if (['national_id', 'residence_permit'].includes(t)) return 'id-card-outline';
@@ -62,7 +64,9 @@ export function DocumentCard({
           {doc.name}
         </Text>
         <Text style={[type.caption, { marginTop: 3 }]} numberOfLines={1}>
-          {dt?.label ?? cat?.name ?? 'Document'} · {doc.pages.length} {doc.pages.length === 1 ? 'page' : 'pages'} · {formatBytes(size)}
+          {doc.description && doc.description !== (dt?.label ?? '')
+            ? doc.description.replace(`${dt?.label ?? ''} · `, '')
+            : `${dt?.label ?? cat?.name ?? 'Document'} · ${doc.pages.length} ${doc.pages.length === 1 ? 'page' : 'pages'} · ${formatBytes(size)}`}
         </Text>
       </View>
       <ExpiryBadge date={doc.expiryDate} />

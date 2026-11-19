@@ -10,30 +10,40 @@
  * successful biometric check (iOS: biometryCurrentSet; Android: BiometricPrompt
  * with a Keystore key that is invalidated when biometrics change).
  *
+ * Some Android devices (notably several Huawei models) report the biometric
+ * status as "unknown", so the OS refuses biometric-bound Keystore keys. On such
+ * devices Docsave falls back to a "device check": the key is stored
+ * Keystore-encrypted and released after the OS biometric prompt succeeds. The
+ * app tells the user which protection is active.
+ *
  * Stored items (no document data ever lives here):
- *   ds.meta        VaultMeta (non-secret)
- *   ds.key.pin     master key wrapped with scrypt(PIN)          modes: pin, pin_or_bio
- *   ds.key.bio     master key, biometric-gated                  mode:  pin_or_bio
- *   ds.key.pinbio  PIN-wrapped master key, biometric-gated      mode:  pin_and_bio (2FA)
- *   ds.attempts    failed-PIN counter + lockout timestamp
- *   ds.settings    user settings (non-secret)
+ *   ds.meta          VaultMeta (non-secret)
+ *   ds.key.pin       master key wrapped with PBKDF2(PIN)        modes: pin, pin_or_bio
+ *   ds.key.bio       master key, biometric-bound (hardware)     mode:  pin_or_bio
+ *   ds.key.biosoft   master key, released after OS bio prompt   mode:  pin_or_bio (fallback)
+ *   ds.key.pinbio    PIN-wrapped master key, biometric-bound    mode:  pin_and_bio (2FA)
+ *   ds.attempts      failed-PIN counter + lockout timestamp
+ *   ds.settings      user settings (non-secret)
  */
+import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { b64 } from '../crypto/base64';
 import {
   TamperError,
   generateMasterKey,
+  needsRewrap,
   unwrapKeyWithPin,
   wipe,
   wrapKeyWithPin,
   type WrappedKey,
 } from '../crypto/core';
-import { DEFAULT_SETTINGS, type Settings, type UnlockMode, type VaultMeta } from './types';
+import { DEFAULT_SETTINGS, type BioBinding, type Settings, type UnlockMode, type VaultMeta } from './types';
 
 const K = {
   meta: 'ds.meta',
   pin: 'ds.key.pin',
   bio: 'ds.key.bio',
+  bioSoft: 'ds.key.biosoft',
   pinBio: 'ds.key.pinbio',
   attempts: 'ds.attempts',
   settings: 'ds.settings',
@@ -63,6 +73,28 @@ export class BiometricCancelledError extends Error {
     super('Biometric authentication was cancelled.');
     this.name = 'BiometricCancelledError';
   }
+}
+
+/** Thrown when an unlock mode cannot be enabled on this device. */
+export class BiometricSetupError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BiometricSetupError';
+  }
+}
+
+export class VaultExistsError extends Error {
+  constructor() {
+    super('A vault already exists on this device. It was not changed.');
+    this.name = 'VaultExistsError';
+  }
+}
+
+function describe(e: unknown): string {
+  const msg = String((e as Error)?.message ?? e);
+  // Strip native wrapper prefixes such as "Call to function ... has been rejected. → Caused by:"
+  const caused = /Caused by:\s*(.+)$/s.exec(msg);
+  return (caused ? caused[1] : msg).trim();
 }
 
 // ── Meta & settings ──────────────────────────────────────────────────────────
@@ -98,11 +130,18 @@ export async function writeSettings(s: Settings): Promise<void> {
 
 // ── Vault creation ───────────────────────────────────────────────────────────
 
+/**
+ * Creates the vault keys. The PIN-protected key is always created first, so
+ * the vault never depends on biometrics succeeding. The requested biometric
+ * mode is then applied; if the device refuses it, the vault stays usable with
+ * the PIN and `biometricError` explains why.
+ */
 export async function createVaultKeys(params: {
   vaultId: string;
   pin: string;
   unlockMode: UnlockMode;
-}): Promise<{ masterKey: Uint8Array; meta: VaultMeta }> {
+}): Promise<{ masterKey: Uint8Array; meta: VaultMeta; biometricError?: string }> {
+  if (await readMeta()) throw new VaultExistsError();
   const masterKey = generateMasterKey();
   const meta: VaultMeta = {
     version: 1,
@@ -111,15 +150,23 @@ export async function createVaultKeys(params: {
     unlockMode: 'pin',
     pinLength: params.pin.length,
   };
-  const wrapped = await wrapKeyWithPin(masterKey, params.pin, b64);
-  await SecureStore.setItemAsync(K.pin, JSON.stringify(wrapped), PLAIN);
-  await writeMeta(meta);
-  await resetAttempts();
-  if (params.unlockMode !== 'pin') {
+  try {
+    const wrapped = await wrapKeyWithPin(masterKey, params.pin, b64);
+    await SecureStore.setItemAsync(K.pin, JSON.stringify(wrapped), PLAIN);
+    await writeMeta(meta);
+    await resetAttempts();
+  } catch (e) {
+    wipe(masterKey);
+    await destroyAllKeys();
+    throw new Error(`The secure key store refused to save the vault key: ${describe(e)}`);
+  }
+  if (params.unlockMode === 'pin') return { masterKey, meta };
+  try {
     const updated = await applyUnlockMode(masterKey, params.pin, meta, params.unlockMode);
     return { masterKey, meta: updated };
+  } catch (e) {
+    return { masterKey, meta, biometricError: describe(e) };
   }
-  return { masterKey, meta };
 }
 
 // ── Unlocking ────────────────────────────────────────────────────────────────
@@ -133,22 +180,46 @@ async function readWrapped(key: string, opts: SecureStore.SecureStoreOptions): P
 export async function unlockWithPin(pin: string): Promise<Uint8Array> {
   const wrapped = await readWrapped(K.pin, PLAIN);
   if (!wrapped) throw new BiometricKeyUnavailableError('PIN key not found on this device.');
-  return unwrapKeyWithPin(wrapped, pin, b64);
+  const key = await unwrapKeyWithPin(wrapped, pin, b64);
+  if (needsRewrap(wrapped)) {
+    // Upgrade legacy / weaker key wrapping transparently (the PIN is correct here).
+    try {
+      await SecureStore.setItemAsync(K.pin, JSON.stringify(await wrapKeyWithPin(key, pin, b64)), PLAIN);
+    } catch {
+      // Keep the old wrapping; unlocking still works.
+    }
+  }
+  return key;
 }
 
 function mapBioError(e: unknown): never {
-  const msg = String((e as Error)?.message ?? e).toLowerCase();
+  const msg = describe(e).toLowerCase();
   if (msg.includes('cancel')) throw new BiometricCancelledError();
   throw new BiometricKeyUnavailableError();
 }
 
-/** Biometric unlock for 'pin_or_bio' mode (the OS shows the biometric prompt). */
-export async function unlockWithBiometrics(): Promise<Uint8Array> {
+/** Biometric unlock for 'pin_or_bio' mode. */
+export async function unlockWithBiometrics(binding: BioBinding = 'hardware'): Promise<Uint8Array> {
   let raw: string | null;
-  try {
-    raw = await SecureStore.getItemAsync(K.bio, bioOptions(BIO_PROMPT));
-  } catch (e) {
-    mapBioError(e);
+  if (binding === 'device-check') {
+    const res = await LocalAuthentication.authenticateAsync({
+      promptMessage: BIO_PROMPT,
+      cancelLabel: 'Use PIN',
+      disableDeviceFallback: true,
+    });
+    if (!res.success) {
+      if (res.error === 'user_cancel' || res.error === 'system_cancel' || res.error === 'user_fallback') {
+        throw new BiometricCancelledError();
+      }
+      throw new BiometricKeyUnavailableError();
+    }
+    raw = await SecureStore.getItemAsync(K.bioSoft, PLAIN);
+  } else {
+    try {
+      raw = await SecureStore.getItemAsync(K.bio, bioOptions(BIO_PROMPT));
+    } catch (e) {
+      mapBioError(e);
+    }
   }
   if (!raw) throw new BiometricKeyUnavailableError();
   const key = b64.decode(raw);
@@ -201,21 +272,58 @@ export async function verifyPin(
 
 // ── Changing PIN / unlock mode ───────────────────────────────────────────────
 
-async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode): Promise<void> {
+/** Stores the keys for a mode. Returns how biometrics are bound (if used). */
+async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode): Promise<BioBinding | undefined> {
   const wrapped = JSON.stringify(await wrapKeyWithPin(masterKey, pin, b64));
   if (mode === 'pin_and_bio') {
-    // Write the new protected item first so a failure never leaves us without a key.
-    await SecureStore.setItemAsync(K.pinBio, wrapped, bioOptions('Confirm to enable two-factor unlock'));
+    // Two-factor requires a hardware-bound biometric key; there is no fallback.
+    try {
+      await SecureStore.setItemAsync(K.pinBio, wrapped, bioOptions('Confirm to enable two-factor unlock'));
+    } catch (e) {
+      throw new BiometricSetupError(
+        `This device does not allow biometric-protected keys (${describe(e)}). Two-factor unlock is not available; use "Fingerprint or PIN" or "PIN only".`,
+      );
+    }
     await SecureStore.deleteItemAsync(K.pin, PLAIN);
     await safeDelete(K.bio, bioOptions(BIO_PROMPT));
-  } else {
-    await SecureStore.setItemAsync(K.pin, wrapped, PLAIN);
-    if (mode === 'pin_or_bio') {
-      await SecureStore.setItemAsync(K.bio, b64.encode(masterKey), bioOptions('Confirm to enable biometric unlock'));
-    } else {
-      await safeDelete(K.bio, bioOptions(BIO_PROMPT));
+    await safeDelete(K.bioSoft, PLAIN);
+    return 'hardware';
+  }
+
+  await SecureStore.setItemAsync(K.pin, wrapped, PLAIN);
+  await safeDelete(K.pinBio, bioOptions(BIO_PROMPT));
+  if (mode === 'pin') {
+    await safeDelete(K.bio, bioOptions(BIO_PROMPT));
+    await safeDelete(K.bioSoft, PLAIN);
+    return undefined;
+  }
+
+  // mode === 'pin_or_bio'
+  try {
+    await SecureStore.setItemAsync(K.bio, b64.encode(masterKey), bioOptions('Confirm to enable biometric unlock'));
+    await safeDelete(K.bioSoft, PLAIN);
+    return 'hardware';
+  } catch (e) {
+    if (describe(e).toLowerCase().includes('cancel')) throw new BiometricCancelledError();
+    // Device refuses biometric-bound keys: fall back to an OS biometric check.
+    const [enrolled, hw] = await Promise.all([
+      LocalAuthentication.isEnrolledAsync().catch(() => false),
+      LocalAuthentication.hasHardwareAsync().catch(() => false),
+    ]);
+    if (!hw || !enrolled) {
+      throw new BiometricSetupError('No fingerprint or face is enrolled on this device.');
     }
-    await safeDelete(K.pinBio, bioOptions(BIO_PROMPT));
+    const check = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Confirm to enable biometric unlock',
+      cancelLabel: 'Cancel',
+      disableDeviceFallback: true,
+    });
+    if (!check.success) {
+      throw new BiometricSetupError(`Biometric confirmation failed (${check.error}).`);
+    }
+    await SecureStore.setItemAsync(K.bioSoft, b64.encode(masterKey), PLAIN);
+    await safeDelete(K.bio, bioOptions(BIO_PROMPT));
+    return 'device-check';
   }
 }
 
@@ -225,17 +333,13 @@ export async function applyUnlockMode(
   meta: VaultMeta,
   mode: UnlockMode,
 ): Promise<VaultMeta> {
-  await storeForMode(masterKey, pin, mode);
-  const updated: VaultMeta = { ...meta, unlockMode: mode, pinLength: pin.length };
+  const binding = await storeForMode(masterKey, pin, mode);
+  const updated: VaultMeta = { ...meta, unlockMode: mode, pinLength: pin.length, bioBinding: binding };
   await writeMeta(updated);
   return updated;
 }
 
-export async function changePin(
-  masterKey: Uint8Array,
-  newPin: string,
-  meta: VaultMeta,
-): Promise<VaultMeta> {
+export async function changePin(masterKey: Uint8Array, newPin: string, meta: VaultMeta): Promise<VaultMeta> {
   return applyUnlockMode(masterKey, newPin, meta, meta.unlockMode);
 }
 

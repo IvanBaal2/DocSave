@@ -1,6 +1,8 @@
 import { randomBytes as nodeRandomBytes } from 'crypto';
 import {
-  DEFAULT_KDF,
+  PBKDF2_ITERATIONS,
+  needsRewrap,
+  wrapKeyWithPinLegacyV1,
   FormatError,
   TamperError,
   decryptJson,
@@ -20,7 +22,7 @@ beforeAll(() => {
   setRandomSource((n) => new Uint8Array(nodeRandomBytes(n)));
 });
 
-const FAST_KDF = { N: 2 ** 14, r: 8, p: 1 };
+const FAST_ITER = 100_000; // minimum accepted; the app uses 600 000 natively
 
 describe('AES-256-GCM object encryption', () => {
   test('round-trips arbitrary binary data', () => {
@@ -97,22 +99,22 @@ describe('AES-256-GCM object encryption', () => {
   });
 });
 
-describe('PIN key wrapping (scrypt + AES-GCM)', () => {
+describe('PIN key wrapping (PBKDF2-SHA256 + AES-GCM)', () => {
   test('correct PIN unwraps the master key', async () => {
     const key = generateMasterKey();
-    const wrapped = await wrapKeyWithPin(key, '482915', b64, FAST_KDF);
+    const wrapped = await wrapKeyWithPin(key, '482915', b64, FAST_ITER);
     expect(wrapped.ct).not.toContain(b64.encode(key));
     const out = await unwrapKeyWithPin(wrapped, '482915', b64);
     expect(Buffer.from(out).equals(Buffer.from(key))).toBe(true);
   });
 
   test('wrong PIN is rejected', async () => {
-    const wrapped = await wrapKeyWithPin(generateMasterKey(), '482915', b64, FAST_KDF);
+    const wrapped = await wrapKeyWithPin(generateMasterKey(), '482915', b64, FAST_ITER);
     await expect(unwrapKeyWithPin(wrapped, '482916', b64)).rejects.toThrow(TamperError);
   });
 
   test('tampered wrapped key is rejected', async () => {
-    const wrapped = await wrapKeyWithPin(generateMasterKey(), '482915', b64, FAST_KDF);
+    const wrapped = await wrapKeyWithPin(generateMasterKey(), '482915', b64, FAST_ITER);
     const ct = b64.decode(wrapped.ct);
     ct[0] ^= 1;
     await expect(unwrapKeyWithPin({ ...wrapped, ct: b64.encode(ct) }, '482915', b64)).rejects.toThrow(
@@ -121,12 +123,24 @@ describe('PIN key wrapping (scrypt + AES-GCM)', () => {
   });
 
   test('downgraded KDF parameters are refused', async () => {
-    const wrapped = await wrapKeyWithPin(generateMasterKey(), '482915', b64, FAST_KDF);
-    await expect(unwrapKeyWithPin({ ...wrapped, N: 2 }, '482915', b64)).rejects.toThrow();
+    const wrapped = await wrapKeyWithPin(generateMasterKey(), '482915', b64, FAST_ITER);
+    await expect(unwrapKeyWithPin({ ...wrapped, iter: 1000 }, '482915', b64)).rejects.toThrow();
   });
 
-  test('default KDF is at least scrypt N=2^15', () => {
-    expect(DEFAULT_KDF.N).toBeGreaterThanOrEqual(2 ** 15);
+  test('default is PBKDF2-SHA256 with 600 000 iterations (OWASP)', async () => {
+    expect(PBKDF2_ITERATIONS).toBeGreaterThanOrEqual(600_000);
+    const w = await wrapKeyWithPin(generateMasterKey(), '482915', b64, FAST_ITER);
+    expect(w.v).toBe(2);
+    expect(w.kdf).toBe('pbkdf2-sha256');
+    expect(needsRewrap(w)).toBe(true); // below the default → upgraded on next unlock
+  });
+
+  test('legacy v1 (scrypt) keys still unlock and are flagged for upgrade', async () => {
+    const key = generateMasterKey();
+    const legacy = await wrapKeyWithPinLegacyV1(key, '482915', b64);
+    expect(needsRewrap(legacy)).toBe(true);
+    expect(Buffer.from(await unwrapKeyWithPin(legacy, '482915', b64)).equals(Buffer.from(key))).toBe(true);
+    await expect(unwrapKeyWithPin(legacy, '000000', b64)).rejects.toThrow(TamperError);
   });
 });
 

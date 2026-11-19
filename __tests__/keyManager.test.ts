@@ -4,7 +4,14 @@ import { randomBytes as nodeRandomBytes } from 'crypto';
 // a separate namespace, like expo-secure-store's auth / no-auth services.
 const mockStore = new Map<string, string>();
 const mockNs = (k: string, o?: { requireAuthentication?: boolean }) => `${o?.requireAuthentication ? 'auth' : 'plain'}:${k}`;
-let mockBiometric: 'ok' | 'cancel' | 'invalidated' = 'ok';
+let mockBiometric: 'ok' | 'cancel' | 'invalidated' | 'unsupported' = 'ok';
+let mockOsCheck = true;
+
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn(async () => true),
+  isEnrolledAsync: jest.fn(async () => true),
+  authenticateAsync: jest.fn(async () => (mockOsCheck ? { success: true } : { success: false, error: 'user_cancel' })),
+}));
 
 jest.mock('expo-secure-store', () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 1,
@@ -17,6 +24,10 @@ jest.mock('expo-secure-store', () => ({
     return mockStore.get(mockNs(k, o)) ?? null;
   }),
   setItemAsync: jest.fn(async (k: string, v: string, o?: { requireAuthentication?: boolean }) => {
+    if (o?.requireAuthentication && mockBiometric === 'unsupported') {
+      // What some Huawei devices report via expo-secure-store:
+      throw new Error("Call to function 'ExpoSecureStore.setValueWithKeyAsync' has been rejected. → Caused by: Could not authenticate the user: Biometric authentication status is unknown");
+    }
     mockStore.set(mockNs(k, o), v);
   }),
   deleteItemAsync: jest.fn(async (k: string, o?: { requireAuthentication?: boolean }) => {
@@ -32,15 +43,16 @@ jest.mock('../src/crypto/core', () => {
   const actual = jest.requireActual('../src/crypto/core');
   return {
     ...actual,
-    wrapKeyWithPin: (k: Uint8Array, pin: string, b64: unknown) =>
-      actual.wrapKeyWithPin(k, pin, b64, { N: 2 ** 14, r: 8, p: 1 }),
+    wrapKeyWithPin: (k: Uint8Array, pin: string, b64: unknown) => actual.wrapKeyWithPin(k, pin, b64, 100_000),
   };
 });
 
+jest.setTimeout(60_000); // real PBKDF2 in JavaScript (the app runs it natively)
 beforeAll(() => setRandomSource((n) => new Uint8Array(nodeRandomBytes(n))));
 beforeEach(() => {
   mockStore.clear();
   mockBiometric = 'ok';
+  mockOsCheck = true;
 });
 
 const eq = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
@@ -114,6 +126,42 @@ describe('vault key lifecycle', () => {
     expect(await Keys.readMeta()).toBeNull();
     await expect(Keys.unlockWithPin('480317')).rejects.toThrow();
     await expect(Keys.unlockWithBiometrics()).rejects.toThrow(Keys.BiometricKeyUnavailableError);
+  });
+});
+
+describe('devices that refuse biometric-bound keys (e.g. some Huawei phones)', () => {
+  test('vault creation still succeeds and falls back to an OS biometric check', async () => {
+    mockBiometric = 'unsupported';
+    const { masterKey, meta, biometricError } = await Keys.createVaultKeys({ vaultId: 'v1', pin: '480317', unlockMode: 'pin_or_bio' });
+    expect(biometricError).toBeUndefined();
+    expect(meta.unlockMode).toBe('pin_or_bio');
+    expect(meta.bioBinding).toBe('device-check');
+    expect(eq(await Keys.unlockWithBiometrics('device-check'), masterKey)).toBe(true);
+    expect(eq(await Keys.unlockWithPin('480317'), masterKey)).toBe(true);
+  });
+
+  test('if the OS biometric check is declined, the vault is created with PIN only and explains why', async () => {
+    mockBiometric = 'unsupported';
+    mockOsCheck = false;
+    const { masterKey, meta, biometricError } = await Keys.createVaultKeys({ vaultId: 'v1', pin: '480317', unlockMode: 'pin_or_bio' });
+    expect(meta.unlockMode).toBe('pin');
+    expect(biometricError).toMatch(/Biometric confirmation failed/);
+    expect(eq(await Keys.unlockWithPin('480317'), masterKey)).toBe(true);
+    expect(mockStore.has('plain:ds.key.biosoft')).toBe(false);
+  });
+
+  test('two-factor is refused with a clear message (no weak fallback)', async () => {
+    mockBiometric = 'unsupported';
+    const { meta, biometricError } = await Keys.createVaultKeys({ vaultId: 'v1', pin: '480317', unlockMode: 'pin_and_bio' });
+    expect(meta.unlockMode).toBe('pin');
+    expect(biometricError).toMatch(/Two-factor unlock is not available/);
+    expect(biometricError).toMatch(/status is unknown/);
+  });
+
+  test('an existing vault is never overwritten', async () => {
+    await Keys.createVaultKeys({ vaultId: 'v1', pin: '480317', unlockMode: 'pin' });
+    await expect(Keys.createVaultKeys({ vaultId: 'v2', pin: '111999', unlockMode: 'pin' })).rejects.toThrow(Keys.VaultExistsError);
+    expect((await Keys.readMeta())?.vaultId).toBe('v1');
   });
 });
 

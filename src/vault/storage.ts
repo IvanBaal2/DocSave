@@ -10,9 +10,21 @@
  * then written to a temp name and atomically moved into place.
  */
 import { Directory, File, Paths } from 'expo-file-system';
-import { excludeFromBackup } from '../../modules/docsave-security';
-import { decryptJson, decryptObject, encryptJson, encryptObject, randomBytes } from '../crypto/core';
-import type { VaultIndex } from './types';
+import { NativeSecurity, excludeFromBackup, nativeErrorCode } from '../../modules/docsave-security';
+import { b64 } from '../crypto/base64';
+import {
+  FormatError,
+  TamperError,
+  decryptJson,
+  decryptObject,
+  deriveObjectKey,
+  encryptJson,
+  encryptObject,
+  randomBytes,
+  wipe,
+} from '../crypto/core';
+import { deleteTempFile } from '../security/secureTemp';
+import type { PendingPage, VaultIndex } from './types';
 
 const INDEX_ID = '__index__';
 
@@ -41,9 +53,17 @@ function writeAtomic(target: File, data: Uint8Array): void {
   tmp.move(target, { overwrite: true });
 }
 
-export function createVaultStorage(vaultId: string): void {
+/**
+ * Creates the vault directory. An existing directory is only replaced when the
+ * caller confirms its keys are gone (orphaned ciphertext that can never be
+ * decrypted again); otherwise this refuses, so a vault is never overwritten.
+ */
+export function createVaultStorage(vaultId: string, opts: { replaceOrphan: boolean }): void {
   const dir = vaultDir();
-  if (dir.exists) dir.delete();
+  if (dir.exists) {
+    if (!opts.replaceOrphan) throw new Error('Vault storage already exists and was left untouched.');
+    dir.delete();
+  }
   dir.create({ intermediates: true });
   blobsDir().create({ intermediates: true });
   excludeFromBackup(dir.uri);
@@ -82,14 +102,77 @@ export function writeIndex(masterKey: Uint8Array, index: VaultIndex): void {
   writeAtomic(indexFile(), encryptJson(masterKey, INDEX_ID, index));
 }
 
-export function writeBlob(masterKey: Uint8Array, id: string, plaintext: Uint8Array): void {
-  writeAtomic(blobFile(id), encryptObject(masterKey, id, plaintext));
+const aadFor = (id: string) => `docsave/aad/v1/${id}`;
+
+function mapNativeError(e: unknown): never {
+  const code = nativeErrorCode(e);
+  if (code === 'ERR_TAMPER') throw new TamperError();
+  if (code === 'ERR_FORMAT') throw new FormatError();
+  if (code === 'ERR_MISSING') throw new Error('Encrypted page is missing from the vault.');
+  throw e;
 }
 
-export async function readBlob(masterKey: Uint8Array, id: string): Promise<Uint8Array> {
+/**
+ * Encrypts one page and writes it to blobs/<id>.enc. With the native module the
+ * plaintext never passes through JavaScript byte arrays: AES-256-GCM runs in the
+ * platform crypto library. Temporary picker files are deleted afterwards.
+ * Returns the plaintext size and the first bytes (for file-type sniffing).
+ */
+export async function writeBlob(
+  masterKey: Uint8Array,
+  id: string,
+  page: Pick<PendingPage, 'base64' | 'fileUri'>,
+): Promise<{ size: number; head: Uint8Array }> {
+  const target = blobFile(id);
+  const key = deriveObjectKey(masterKey, id);
+  try {
+    if (NativeSecurity) {
+      const keyB64 = b64.encode(key);
+      if (page.base64 != null) {
+        await NativeSecurity.sealToFile(keyB64, aadFor(id), page.base64, target.uri);
+        const head = b64.decode(page.base64.slice(0, 24));
+        return { size: Math.floor((page.base64.length * 3) / 4), head };
+      }
+      if (page.fileUri) {
+        const r = await NativeSecurity.sealFileToFile(keyB64, aadFor(id), page.fileUri, target.uri);
+        return { size: r.size, head: b64.decode(r.head) };
+      }
+      throw new Error('Nothing to encrypt.');
+    }
+    // JavaScript fallback (tests, Expo Go): identical file format.
+    const bytes = page.base64 != null ? b64.decode(page.base64) : await new File(page.fileUri!).bytes();
+    try {
+      writeAtomic(target, encryptObject(masterKey, id, bytes));
+      return { size: bytes.length, head: bytes.slice(0, 16) };
+    } finally {
+      wipe(bytes);
+    }
+  } finally {
+    wipe(key);
+    if (page.fileUri) deleteTempFile(page.fileUri);
+  }
+}
+
+/** Decrypts one page and returns it as base64 (for the in-memory viewer). */
+export async function readBlob(masterKey: Uint8Array, id: string): Promise<string> {
   const f = blobFile(id);
   if (!f.exists) throw new Error('Encrypted page is missing from the vault.');
-  return decryptObject(masterKey, id, await f.bytes());
+  if (NativeSecurity) {
+    const key = deriveObjectKey(masterKey, id);
+    try {
+      return await NativeSecurity.openFile(b64.encode(key), aadFor(id), f.uri);
+    } catch (e) {
+      mapNativeError(e);
+    } finally {
+      wipe(key);
+    }
+  }
+  const plain = decryptObject(masterKey, id, await f.bytes());
+  try {
+    return b64.encode(plain);
+  } finally {
+    wipe(plain);
+  }
 }
 
 export function deleteBlob(id: string): void {

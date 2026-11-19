@@ -1,12 +1,38 @@
 package expo.modules.docsavesecurity
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.os.Build
 import android.os.Debug
+import android.util.Base64
+import androidx.exifinterface.media.ExifInterface
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import expo.modules.kotlin.Promise
+import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.security.SecureRandom
+import javax.crypto.AEADBadTagException
+import javax.crypto.Cipher
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
+import javax.crypto.spec.SecretKeySpec
+
+private val MAGIC = byteArrayOf(0x44, 0x53, 0x56, 0x31) // "DSV1"
+private const val NONCE_BYTES = 12
+private const val HEADER_BYTES = 16 // magic + nonce
+private const val TAG_BYTES = 16
 
 class DocsaveSecurityModule : Module() {
+  private val random = SecureRandom()
+
   override fun definition() = ModuleDefinition {
     Name("DocsaveSecurity")
 
@@ -14,11 +40,10 @@ class DocsaveSecurityModule : Module() {
     // dataExtractionRules via the withAndroidNoBackup config plugin).
     Function("excludeFromBackup") { _: String -> true }
 
-    // Heuristic root / instrumentation detection. No check is bulletproof:
-    // root-hiding tools (e.g. Magisk DenyList) can conceal these indicators.
+    // Heuristic root / instrumentation detection using file and property checks
+    // only (no shell commands). Root-hiding tools can conceal these indicators.
     Function("checkIntegrity") {
       val reasons = mutableListOf<String>()
-
       val suPaths = listOf(
         "/system/bin/su", "/system/xbin/su", "/sbin/su", "/su/bin/su",
         "/system/sd/xbin/su", "/system/bin/failsafe/su", "/data/local/su",
@@ -28,35 +53,173 @@ class DocsaveSecurityModule : Module() {
       for (path in suPaths) {
         if (File(path).exists()) reasons.add("path:$path")
       }
-
       val tags = Build.TAGS
       if (tags != null && tags.contains("test-keys")) reasons.add("test-keys")
-
-      if (canExecuteSu()) reasons.add("su-executable")
-
       if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) reasons.add("debugger-attached")
-
       if (hasFridaMapping()) reasons.add("frida")
-
       mapOf(
         "compromised" to reasons.isNotEmpty(),
         "emulator" to isEmulator(),
         "reasons" to reasons
       )
     }
-  }
 
-  private fun canExecuteSu(): Boolean {
-    var process: Process? = null
-    return try {
-      process = Runtime.getRuntime().exec(arrayOf("/system/xbin/which", "su"))
-      process.inputStream.bufferedReader().use { it.readLine() } != null
-    } catch (_: Throwable) {
-      false
-    } finally {
-      process?.destroy()
+    // ── Cryptography (platform crypto: Conscrypt / BoringSSL) ────────────────
+
+    AsyncFunction("pbkdf2Sha256") { password: String, saltB64: String, iterations: Int, length: Int ->
+      val spec = PBEKeySpec(password.toCharArray(), b64d(saltB64), iterations, length * 8)
+      try {
+        val key = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+        b64e(key)
+      } finally {
+        spec.clearPassword()
+      }
+    }
+
+    AsyncFunction("sealToFile") { keyB64: String, aad: String, dataB64: String, path: String ->
+      val sealed = seal(b64d(keyB64), aad.toByteArray(Charsets.UTF_8), b64d(dataB64))
+      writeAtomic(path, sealed)
+      sealed.size
+    }
+
+    AsyncFunction("sealFileToFile") { keyB64: String, aad: String, inPath: String, outPath: String ->
+      val plain = File(stripScheme(inPath)).readBytes()
+      try {
+        val sealed = seal(b64d(keyB64), aad.toByteArray(Charsets.UTF_8), plain)
+        writeAtomic(outPath, sealed)
+        mapOf("size" to plain.size, "head" to b64e(plain.copyOfRange(0, minOf(16, plain.size))))
+      } finally {
+        plain.fill(0)
+      }
+    }
+
+    AsyncFunction("openFile") { keyB64: String, aad: String, path: String ->
+      val file = File(stripScheme(path))
+      if (!file.exists()) throw CodedException("ERR_MISSING", "Encrypted file is missing", null)
+      val plain = open(b64d(keyB64), aad.toByteArray(Charsets.UTF_8), file.readBytes())
+      try {
+        b64e(plain)
+      } finally {
+        plain.fill(0)
+      }
+    }
+
+    // ── On-device text recognition (ML Kit, bundled model, no network) ───────
+
+    AsyncFunction("recognizeText") { imageB64: String, promise: Promise ->
+      val bitmap = decodeUpright(b64d(imageB64))
+      if (bitmap == null) {
+        promise.reject(CodedException("ERR_IMAGE", "The image could not be decoded", null))
+        return@AsyncFunction
+      }
+      val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+      recognizer.process(InputImage.fromBitmap(bitmap, 0))
+        .addOnSuccessListener { result ->
+          val lines = result.textBlocks.flatMap { it.lines }.map { line ->
+            val box = line.boundingBox
+            mapOf(
+              "text" to line.text,
+              "x" to (box?.left ?: 0),
+              "y" to (box?.top ?: 0),
+              "w" to (box?.width() ?: 0),
+              "h" to (box?.height() ?: 0)
+            )
+          }
+          promise.resolve(mapOf("width" to bitmap.width, "height" to bitmap.height, "lines" to lines))
+          recognizer.close()
+          bitmap.recycle()
+        }
+        .addOnFailureListener { e ->
+          promise.reject(CodedException("ERR_OCR", e.message ?: "Text recognition failed", e))
+          recognizer.close()
+          bitmap.recycle()
+        }
+    }
+
+    // Crops a JPEG to a normalised rectangle (0..1) and re-encodes it, in memory.
+    AsyncFunction("cropJpeg") { imageB64: String, x: Double, y: Double, w: Double, h: Double, quality: Double ->
+      val src = decodeUpright(b64d(imageB64))
+        ?: throw CodedException("ERR_IMAGE", "The image could not be decoded", null)
+      val left = (x.coerceIn(0.0, 1.0) * src.width).toInt()
+      val top = (y.coerceIn(0.0, 1.0) * src.height).toInt()
+      val width = (w.coerceIn(0.0, 1.0) * src.width).toInt().coerceAtMost(src.width - left).coerceAtLeast(1)
+      val height = (h.coerceIn(0.0, 1.0) * src.height).toInt().coerceAtMost(src.height - top).coerceAtLeast(1)
+      val cropped = Bitmap.createBitmap(src, left, top, width, height)
+      val out = ByteArrayOutputStream()
+      cropped.compress(Bitmap.CompressFormat.JPEG, (quality * 100).toInt().coerceIn(30, 100), out)
+      if (cropped != src) cropped.recycle()
+      src.recycle()
+      b64e(out.toByteArray())
     }
   }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  private fun seal(key: ByteArray, aad: ByteArray, plain: ByteArray): ByteArray {
+    require(key.size == 32) { "Key must be 32 bytes" }
+    val nonce = ByteArray(NONCE_BYTES).also { random.nextBytes(it) }
+    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+    cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BYTES * 8, nonce))
+    cipher.updateAAD(aad)
+    val ct = cipher.doFinal(plain)
+    key.fill(0)
+    return MAGIC + nonce + ct
+  }
+
+  private fun open(key: ByteArray, aad: ByteArray, blob: ByteArray): ByteArray {
+    if (blob.size < HEADER_BYTES + TAG_BYTES || !blob.copyOfRange(0, 4).contentEquals(MAGIC)) {
+      throw CodedException("ERR_FORMAT", "Not a Docsave encrypted object", null)
+    }
+    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+    cipher.init(
+      Cipher.DECRYPT_MODE,
+      SecretKeySpec(key, "AES"),
+      GCMParameterSpec(TAG_BYTES * 8, blob, 4, NONCE_BYTES)
+    )
+    cipher.updateAAD(aad)
+    try {
+      return cipher.doFinal(blob, HEADER_BYTES, blob.size - HEADER_BYTES)
+    } catch (e: AEADBadTagException) {
+      throw CodedException("ERR_TAMPER", "Integrity check failed", e)
+    } finally {
+      key.fill(0)
+    }
+  }
+
+  private fun writeAtomic(path: String, data: ByteArray) {
+    val target = File(stripScheme(path))
+    target.parentFile?.mkdirs()
+    val tmp = File(target.parentFile, target.name + ".tmp")
+    tmp.writeBytes(data)
+    if (!tmp.renameTo(target)) {
+      target.delete()
+      if (!tmp.renameTo(target)) throw CodedException("ERR_WRITE", "Could not write encrypted file", null)
+    }
+  }
+
+  private fun decodeUpright(bytes: ByteArray): Bitmap? {
+    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+    val orientation = try {
+      ExifInterface(ByteArrayInputStream(bytes))
+        .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+    } catch (_: Throwable) {
+      ExifInterface.ORIENTATION_NORMAL
+    }
+    val degrees = when (orientation) {
+      ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+      ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+      ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+      else -> 0f
+    }
+    if (degrees == 0f) return bitmap
+    val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(degrees) }, true)
+    if (rotated != bitmap) bitmap.recycle()
+    return rotated
+  }
+
+  private fun stripScheme(path: String) = if (path.startsWith("file://")) path.removePrefix("file://") else path
+  private fun b64d(s: String): ByteArray = Base64.decode(s, Base64.DEFAULT)
+  private fun b64e(b: ByteArray): String = Base64.encodeToString(b, Base64.NO_WRAP)
 
   private fun hasFridaMapping(): Boolean = try {
     File("/proc/self/maps").useLines { lines ->

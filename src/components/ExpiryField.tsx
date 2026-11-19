@@ -37,8 +37,8 @@ export function ExpiryField({
   }
 
   return (
-    <View style={{ marginBottom: spacing.lg }}>
-      <Text style={[type.overline, { marginBottom: spacing.sm }]}>{label}</Text>
+    <View style={{ marginBottom: label ? spacing.lg : 0 }}>
+      {label ? <Text style={[type.overline, { marginBottom: spacing.sm }]}>{label}</Text> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Pressable
           onPress={open}

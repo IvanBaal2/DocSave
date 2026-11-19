@@ -5,6 +5,9 @@ import { ActivityIndicator, Alert, AppState, Modal, Pressable, ScrollView, Style
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExpiryBadge, iconForDocument } from '../../../src/components/DocumentCard';
 import { ExpiryField } from '../../../src/components/ExpiryField';
+import { FieldEditor } from '../../../src/components/FieldEditor';
+import { describeDocument } from '../../../src/scan/extract';
+import type { DocField } from '../../../src/vault/types';
 import { Button, Chip, IconButton, Notice, TextField, haptic, type IconName } from '../../../src/components/ui';
 import { TamperError, wipe } from '../../../src/crypto/core';
 import { useReauth } from '../../../src/security/ReauthProvider';
@@ -23,17 +26,16 @@ export default function DocumentViewer() {
 
   const [authorized, setAuthorized] = useState(false);
   const [pageIdx, setPageIdx] = useState(0);
-  const [bytes, setBytes] = useState<Uint8Array | null>(null);
+  const [bytes, setBytes] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [editing, setEditing] = useState(false);
-  const bytesRef = useRef<Uint8Array | null>(null);
+  const bytesRef = useRef<string | null>(null);
   const authInFlight = useRef(false);
 
   const clear = useCallback(() => {
-    wipe(bytesRef.current);
-    bytesRef.current = null;
+    bytesRef.current = null; // drop the only reference to the decrypted data
     setBytes(null);
   }, []);
 
@@ -80,7 +82,7 @@ export default function DocumentViewer() {
     vault
       .readPage(page.id)
       .then((b) => {
-        if (cancelled) return wipe(b);
+        if (cancelled) return;
         bytesRef.current = b;
         setBytes(b);
       })
@@ -186,7 +188,7 @@ export default function DocumentViewer() {
             <Text style={[type.caption, { marginTop: spacing.md }]}>Verifying integrity and decrypting…</Text>
           </View>
         ) : (
-          <SecureViewer key={page.id} bytes={bytes} mimeType={page.mimeType} />
+          <SecureViewer key={page.id} base64={bytes} mimeType={page.mimeType} />
         )}
       </View>
 
@@ -204,7 +206,8 @@ export default function DocumentViewer() {
 
       <Modal visible={showInfo} transparent animationType="slide" onRequestClose={() => setShowInfo(false)}>
         <Pressable style={{ flex: 1, backgroundColor: colors.overlay }} onPress={() => setShowInfo(false)} />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { maxHeight: '85%' }]}>
+          <ScrollView showsVerticalScrollIndicator={false}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg }}>
             <View style={[styles.docIcon, { backgroundColor: (cat?.color ?? colors.primary) + '1F' }]}>
               <Ionicons name={iconForDocument(doc)} size={24} color={cat?.color ?? colors.primaryBright} />
@@ -215,6 +218,29 @@ export default function DocumentViewer() {
             </View>
             <ExpiryBadge date={doc.expiryDate} />
           </View>
+          {doc.description ? (
+            <View style={styles.desc}>
+              <Ionicons name="sparkles-outline" size={15} color={colors.primaryBright} />
+              <Text style={[type.bodySecondary, { flex: 1, marginLeft: spacing.sm }]}>{doc.description}</Text>
+            </View>
+          ) : null}
+          {doc.fields?.length ? (
+            <View style={{ marginBottom: spacing.md }}>
+              <Text style={[type.overline, { marginBottom: spacing.xs }]}>Details</Text>
+              {doc.fields.map((f) => (
+                <View key={f.key} style={styles.fieldRow}>
+                  <Text style={[type.bodySecondary, { width: 130 }]}>{f.label}</Text>
+                  {f.value ? (
+                    <Text style={[type.body, { flex: 1, textAlign: 'right' }]} selectable={false}>
+                      {/date|expiry/i.test(f.key) && /^\d{4}-\d{2}-\d{2}$/.test(f.value) ? formatDate(f.value) : f.value}
+                    </Text>
+                  ) : (
+                    <Text style={[type.caption, { flex: 1, textAlign: 'right', color: colors.warning }]}>Not recognised</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : null}
           <InfoRow icon="folder-outline" label="Category" value={cat?.name ?? '—'} />
           {doc.expiryDate ? (
             <InfoRow icon="calendar-outline" label={doc.categoryId === 'travel' ? 'Travel date' : 'Expires'} value={formatDate(doc.expiryDate)} />
@@ -230,6 +256,7 @@ export default function DocumentViewer() {
             </View>
           ) : null}
           <Button title="Close" variant="secondary" onPress={() => setShowInfo(false)} style={{ marginTop: spacing.xl }} />
+          </ScrollView>
         </View>
       </Modal>
 
@@ -245,6 +272,7 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
   const [notes, setNotes] = useState(doc?.notes ?? '');
   const [expiry, setExpiry] = useState<string | undefined>(doc?.expiryDate);
   const [categoryId, setCategoryId] = useState(doc?.categoryId ?? 'other');
+  const [fields, setFields] = useState<DocField[]>(doc?.fields ?? []);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -253,6 +281,7 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
       setNotes(doc.notes ?? '');
       setExpiry(doc.expiryDate);
       setCategoryId(doc.categoryId);
+      setFields(doc.fields ?? []);
       setError(null);
     }
   }, [visible]);
@@ -267,6 +296,10 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
       expiryDate: expiry,
       categoryId,
       docType: categoryId === doc!.categoryId ? doc!.docType : undefined,
+      fields: fields.length ? fields : undefined,
+      description: fields.length
+        ? describeDocument(findDocType(doc!.categoryId, doc!.docType)?.label ?? name.trim(), fields, categoryId === 'travel' ? 'on' : 'expires')
+        : doc!.description,
     });
     haptic.success();
     onClose();
@@ -294,6 +327,12 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
             ))}
           </View>
           <ExpiryField label={categoryId === 'travel' ? 'Travel date' : 'Expiry date'} value={expiry} onChange={setExpiry} />
+          {fields.length ? (
+            <>
+              <Text style={[type.overline, { marginBottom: spacing.sm, marginTop: spacing.sm }]}>Details</Text>
+              <FieldEditor fields={fields} onChange={setFields} />
+            </>
+          ) : null}
           <TextField label="Notes" value={notes} onChangeText={setNotes} multiline maxLength={1000} />
           <Button title="Save changes" icon="checkmark" onPress={save} />
         </ScrollView>
@@ -376,4 +415,19 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   docIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  desc: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
 });

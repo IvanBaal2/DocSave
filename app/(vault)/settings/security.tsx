@@ -24,8 +24,8 @@ export default function SecuritySettings() {
       setBusy(true);
       try {
         await vault.setUnlockMode(next, pin);
-      } catch {
-        Alert.alert('Not changed', `${biometrics.label} confirmation was cancelled or failed.`);
+      } catch (e) {
+        Alert.alert('Not changed', (e as Error)?.message || `${biometrics.label} confirmation was cancelled or failed.`);
       } finally {
         setBusy(false);
       }
@@ -97,6 +97,15 @@ export default function SecuritySettings() {
           disabled={busy || !bioUsable}
         />
       </SettingsGroup>
+      {mode === 'pin_or_bio' && vault.meta?.bioBinding === 'device-check' ? (
+        <Notice tone="info" title={`${biometrics.label}: device check`}>
+          {`This phone does not allow keys that are locked to ${biometrics.label.toLowerCase()} in secure hardware, so Docsave releases a Keystore-encrypted key after the system ${biometrics.label.toLowerCase()} check succeeds. For the strongest protection choose "PIN only".`}
+        </Notice>
+      ) : mode !== 'pin' ? (
+        <Notice tone="success" title="Hardware-bound biometric key">
+          {`The vault key can only be released by the secure hardware after ${biometrics.label.toLowerCase()} succeeds.`}
+        </Notice>
+      ) : null}
       {!bioUsable ? (
         <Notice tone="info">{`${biometrics.label} is not set up on this device. Enrol it in your device settings to use it with Docsave.`}</Notice>
       ) : null}

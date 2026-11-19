@@ -29,6 +29,8 @@ export default function Search() {
           findCategory(d.categoryId, index.customCategories)?.name ?? '',
           findDocType(d.categoryId, d.docType)?.label ?? '',
           ...d.pages.map((p) => p.label),
+          d.description ?? '',
+          ...(d.fields ?? []).map((f) => f.value),
         ]
           .join(' ')
           .toLowerCase();

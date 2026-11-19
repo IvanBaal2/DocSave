@@ -38,23 +38,17 @@ module.exports = {
   expo: {
     name: 'Docsave',
     slug: 'docsave',
-    version: '1.0.0',
+    version: '1.1.0',
     scheme: 'docsave',
     orientation: 'portrait',
     userInterfaceStyle: 'dark',
     backgroundColor: '#05080F',
     icon: './assets/icon.png',
-    splash: {
-      image: './assets/splash.png',
-      backgroundColor: '#05080F',
-      resizeMode: 'contain',
-    },
     ios: {
       bundleIdentifier: BUNDLE_ID,
       // iPhone-only listing (iPads still run it in compatibility mode), so no
       // iPad screenshots are required for App Store review.
       supportsTablet: false,
-      buildNumber: '1',
       // Every file Docsave writes is unreadable while the device is locked.
       entitlements: {
         'com.apple.developer.default-data-protection': 'NSFileProtectionComplete',
@@ -92,7 +86,6 @@ module.exports = {
     },
     android: {
       package: BUNDLE_ID,
-      versionCode: 1,
       allowBackup: false,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
@@ -108,7 +101,20 @@ module.exports = {
     },
     plugins: [
       'expo-router',
-      'expo-dev-client',
+      // Launch screen: Docsave artwork on the app's dark background.
+      [
+        'expo-splash-screen',
+        {
+          image: './assets/splash-icon.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          backgroundColor: '#05080F',
+          android: { image: './assets/splash-icon.png', imageWidth: 200, backgroundColor: '#05080F' },
+          ios: { image: './assets/splash-icon.png', imageWidth: 200, backgroundColor: '#05080F' },
+        },
+      ],
+      // The development launcher is only included in development builds.
+      ...(IS_PRODUCTION ? [] : ['expo-dev-client']),
       ['expo-secure-store', { faceIDPermission: FACE_ID_TEXT, configureAndroidBackup: false }],
       ['expo-local-authentication', { faceIDPermission: FACE_ID_TEXT }],
       [

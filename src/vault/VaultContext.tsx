@@ -2,8 +2,9 @@ import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import { checkIntegrity, type IntegrityReport } from '../../modules/docsave-security';
-import { TamperError, setRandomSource, wipe, type WrappedKey } from '../crypto/core';
+import { NativeSecurity, checkIntegrity, type IntegrityReport } from '../../modules/docsave-security';
+import { TamperError, setPbkdf2Provider, setRandomSource, wipe, type WrappedKey } from '../crypto/core';
+import { sniffMime } from '../security/importers';
 import { cancelAllReminders, rescheduleReminders } from '../notifications/scheduler';
 import { purgeTempFiles } from '../security/secureTemp';
 import * as Keys from './keyManager';
@@ -20,6 +21,11 @@ import {
 } from './types';
 
 setRandomSource((n) => Crypto.getRandomBytes(n));
+// PBKDF2 for PIN keys runs in the platform's native crypto (fast and constant-time).
+const nativeSecurity = NativeSecurity;
+if (nativeSecurity) setPbkdf2Provider((pin, salt, iter, len) => nativeSecurity.pbkdf2Sha256(pin, salt, iter, len));
+
+export type SetupResult = { biometricError?: string };
 
 export type VaultStatus = 'loading' | 'uninitialized' | 'locked' | 'unlocked';
 
@@ -47,15 +53,22 @@ type VaultContextValue = {
   /** Two-factor step 1 completed; waiting for the PIN. */
   twoFactorPending: boolean;
 
-  initializeVault(p: { pin: string; unlockMode: UnlockMode; termsVersion: string; privacyVersion: string }): Promise<void>;
+  /** Creates the vault. The UI then shows confirmation and calls enterVault(). */
+  initializeVault(p: { pin: string; unlockMode: UnlockMode; termsVersion: string; privacyVersion: string }): Promise<SetupResult>;
+  /** Opens the dashboard after setup confirmation. */
+  enterVault(): void;
   unlockWithPin(pin: string): Promise<UnlockResult>;
   unlockWithBiometrics(): Promise<UnlockResult>;
   lock(): void;
 
   addDocument(input: NewDocumentInput): Promise<DocumentRecord>;
-  updateDocument(id: string, patch: Partial<Pick<DocumentRecord, 'name' | 'notes' | 'expiryDate' | 'categoryId' | 'docType'>>): Promise<void>;
+  updateDocument(
+    id: string,
+    patch: Partial<Pick<DocumentRecord, 'name' | 'notes' | 'expiryDate' | 'categoryId' | 'docType' | 'fields' | 'description'>>,
+  ): Promise<void>;
   deleteDocument(id: string): Promise<void>;
-  readPage(pageId: string): Promise<Uint8Array>;
+  /** Decrypts a page in memory and returns it as base64. */
+  readPage(pageId: string): Promise<string>;
   addCategory(name: string, icon: string): Promise<CustomCategory>;
   deleteCategory(id: string): Promise<void>;
   deleteAllDocuments(): Promise<void>;
@@ -120,7 +133,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       purgeTempFiles();
       setIntegrity(checkIntegrity());
-      await refreshBiometrics();
+      refreshBiometrics(); // not awaited: never delays the unlock screen
       const [m, s, a] = await Promise.all([Keys.readMeta(), Keys.readSettings(), Keys.getAttempts()]);
       setSettings(s);
       setAttempts(a);
@@ -333,7 +346,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const mode = metaRef.current?.unlockMode ?? 'pin';
     try {
       if (mode === 'pin_or_bio') {
-        return await runExternal(async () => completeUnlock(await Keys.unlockWithBiometrics()));
+        const binding = metaRef.current?.bioBinding ?? 'hardware';
+        return await runExternal(async () => completeUnlock(await Keys.unlockWithBiometrics(binding)));
       }
       if (mode === 'pin_and_bio') {
         twoFactorWrapped.current = await runExternal(() => Keys.fetchTwoFactorWrappedKey());
@@ -358,33 +372,58 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   // ── Setup ──────────────────────────────────────────────────────────────────
   const initializeVault = useCallback(
-    async (p: { pin: string; unlockMode: UnlockMode; termsVersion: string; privacyVersion: string }) => {
+    async (p: { pin: string; unlockMode: UnlockMode; termsVersion: string; privacyVersion: string }): Promise<SetupResult> => {
+      // Never overwrite an existing vault: only orphaned storage (keys gone) may be replaced.
+      const existingMeta = await Keys.readMeta();
+      if (existingMeta && Store.vaultStorageExists()) throw new Keys.VaultExistsError();
       const vaultId = Store.newId();
-      Store.createVaultStorage(vaultId);
-      const { masterKey: key, meta: m } = await runExternal(() =>
-        Keys.createVaultKeys({ vaultId, pin: p.pin, unlockMode: p.unlockMode }),
-      );
+      try {
+        Store.createVaultStorage(vaultId, { replaceOrphan: !existingMeta });
+      } catch (e) {
+        throw new Error(`Docsave could not create its private storage folder: ${(e as Error).message}`);
+      }
+      let created: Awaited<ReturnType<typeof Keys.createVaultKeys>>;
+      try {
+        created = await runExternal(() => Keys.createVaultKeys({ vaultId, pin: p.pin, unlockMode: p.unlockMode }));
+      } catch (e) {
+        Store.destroyVaultStorage(); // roll back: no half-created vault
+        throw e;
+      }
+      const { masterKey: key, meta: m, biometricError } = created;
       const s: Settings = {
         ...DEFAULT_SETTINGS,
         acceptedTermsVersion: p.termsVersion,
         acceptedPrivacyVersion: p.privacyVersion,
       };
-      await Keys.writeSettings(s);
       const idx = Store.emptyIndex();
-      Store.writeIndex(key, idx);
+      try {
+        await Keys.writeSettings(s);
+        Store.writeIndex(key, idx);
+        // Prove the vault round-trips before declaring it ready.
+        await Store.readIndex(key);
+      } catch (e) {
+        wipe(key);
+        await Keys.destroyAllKeys();
+        Store.destroyVaultStorage();
+        throw new Error(`The encrypted index could not be created: ${(e as Error).message}`);
+      }
       setSettings(s);
       setMeta(m);
       masterKey.current = key;
-      if (m.unlockMode === 'pin_and_bio') {
-        twoFactorWrapped.current = null;
-      }
+      twoFactorWrapped.current = null;
       setIndex(idx);
       lastActivity.current = Date.now();
       lastAuthAt.current = Date.now();
-      setStatus('unlocked');
+      return { biometricError };
     },
     [runExternal],
   );
+
+  const enterVault = useCallback(() => {
+    if (!masterKey.current) return;
+    lastActivity.current = Date.now();
+    setStatus('unlocked');
+  }, []);
 
   // ── Documents ──────────────────────────────────────────────────────────────
   function requireKey(): Uint8Array {
@@ -404,12 +443,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
     const written: string[] = [];
     try {
-      const pages = input.pages.map((p) => {
+      const pages = [];
+      for (const p of input.pages) {
         const id = Store.newId();
-        Store.writeBlob(key, id, p.bytes);
         written.push(id);
-        return { id, label: p.label, mimeType: p.mimeType, size: p.bytes.length };
-      });
+        const { size, head } = await Store.writeBlob(key, id, p);
+        pages.push({ id, label: p.label, mimeType: sniffMime(head, p.mimeType), size });
+      }
       const doc: DocumentRecord = {
         id: Store.newId(),
         name: input.name.trim() || 'Untitled document',
@@ -417,6 +457,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         docType: input.docType,
         notes: input.notes?.trim() || undefined,
         expiryDate: input.expiryDate || undefined,
+        fields: input.fields?.length ? input.fields : undefined,
+        description: input.description?.trim() || undefined,
         pages,
         createdAt: now,
         updatedAt: now,
@@ -426,8 +468,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       written.forEach(Store.deleteBlob);
       throw e;
-    } finally {
-      input.pages.forEach((p) => wipe(p.bytes));
     }
   }, []);
 
@@ -529,6 +569,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       attempts,
       twoFactorPending,
       initializeVault,
+      enterVault,
       unlockWithPin,
       unlockWithBiometrics,
       lock,
@@ -553,7 +594,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       status, meta, settings, index, integrity, integrityAcknowledged, biometrics, attempts, twoFactorPending,
-      initializeVault, unlockWithPin, unlockWithBiometrics, lock, addDocument, updateDocument, deleteDocument,
+      initializeVault, enterVault, unlockWithPin, unlockWithBiometrics, lock, addDocument, updateDocument, deleteDocument,
       readPage, addCategory, deleteCategory, deleteAllDocuments, destroyVault, verifyPin, changePin,
       setUnlockMode, updateSettings, runExternal, touch,
     ],

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
+import { BOTTOM_NAV_HEIGHT, BottomNav } from '../../../src/components/BottomNav';
 import { Header, Screen, SectionTitle, SettingRow, SettingsGroup } from '../../../src/components/ui';
 import { useReauth } from '../../../src/security/ReauthProvider';
 import { colors, spacing, type } from '../../../src/theme/theme';
@@ -27,8 +28,9 @@ export default function SettingsHome() {
   }
 
   return (
-    <Screen>
-      <Header title="Settings" />
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <Screen edges={['top']} contentStyle={{ paddingBottom: BOTTOM_NAV_HEIGHT + 48 }}>
+      <Header title="Settings" back={false} />
 
       <SectionTitle>Security</SectionTitle>
       <SettingsGroup>
@@ -117,5 +119,7 @@ export default function SettingsHome() {
         Docsave {Constants.expoConfig?.version ?? ''} · Your Documents. Your Device. Your Privacy.
       </Text>
     </Screen>
+    <BottomNav active="settings" />
+    </View>
   );
 }

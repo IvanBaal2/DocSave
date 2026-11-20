@@ -146,8 +146,10 @@ export function Button({
   loading,
   disabled,
   style,
+  accessibilityHint,
 }: {
   title: string;
+  accessibilityHint?: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   icon?: IconName;
@@ -177,6 +179,8 @@ export function Button({
       }}
       disabled={inactive}
       accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       style={({ pressed }) => [
         styles.button,

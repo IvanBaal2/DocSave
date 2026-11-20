@@ -1,9 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Text } from 'react-native';
+import { Keyboard } from 'react-native';
 import { CheckRow } from '../../../src/components/Checkbox';
-import { Button, Header, Notice, PulseShield, Screen, TextField, haptic } from '../../../src/components/ui';
-import { spacing, type } from '../../../src/theme/theme';
+import { Button, Header, Notice, Screen, TextField, haptic } from '../../../src/components/ui';
+import { spacing } from '../../../src/theme/theme';
 import { useVault } from '../../../src/vault/VaultContext';
 
 export default function DangerZone() {
@@ -46,15 +46,12 @@ export default function DangerZone() {
       }
     >
       <Header title={destroy ? 'Destroy vault' : 'Delete all documents'} />
-      <PulseShield tone="warn" size={64} />
+      {/* The confirmation controls sit directly under the warning, near the top, so the keyboard never covers them. */}
       <Notice tone="danger" title="This cannot be undone">
         {destroy
-          ? 'The encryption keys are erased from secure hardware (crypto-shredding), then all encrypted files, folders, settings and reminders are deleted. Docsave will return to first-time setup.'
-          : `All ${count} documents and their encrypted files will be deleted. Your PIN, folders and settings are kept.`}
+          ? 'The encryption keys are erased from secure hardware, then all encrypted files, settings and reminders are deleted. Docsave has no backup and no recovery, and will return to first-time setup.'
+          : `All ${count} documents and their encrypted files will be deleted. Docsave has no backup and no recovery. Your PIN and settings are kept.`}
       </Notice>
-      <Text style={[type.bodySecondary, { marginTop: spacing.md }]}>
-        Docsave has no backup and no recovery. Make sure you no longer need these documents.
-      </Text>
       <CheckRow checked={ack} onChange={setAck} label="I understand my documents will be permanently and irreversibly lost." />
       <TextField
         label={`Type ${word} to confirm`}
@@ -62,7 +59,10 @@ export default function DangerZone() {
         onChangeText={setTyped}
         autoCapitalize="characters"
         placeholder={word}
-        style={{ marginTop: spacing.lg }}
+        returnKeyType="done"
+        submitBehavior="blurAndSubmit"
+        onSubmitEditing={() => Keyboard.dismiss()}
+        style={{ marginTop: spacing.sm }}
       />
     </Screen>
   );

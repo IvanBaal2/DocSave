@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import { CameraView, type BarcodeScanningResult } from 'expo-camera';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import { parseBcbp } from '../scan/extract';
 import { deleteTempFile } from '../security/secureTemp';
 import { colors, spacing, type } from '../theme/theme';
 import type { DocTypeDef } from '../vault/categories';
-import { useVault } from '../vault/VaultContext';
+import { CameraPermissionScreen, useCameraAccess } from './CameraPermission';
 import { Button, haptic } from './ui';
 
 export type CapturedSide = { base64: string; lines: string[]; barcode?: string; ocrError?: string };
@@ -61,8 +61,7 @@ export function GuidedCamera({
   onImport?: () => void;
   onClose: () => void;
 }) {
-  const vault = useVault();
-  const [permission, requestPermission] = useCameraPermissions();
+  const camAccess = useCameraAccess();
   const cam = useRef<CameraView>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
@@ -156,7 +155,7 @@ export function GuidedCamera({
 
   // Auto-capture loop.
   useEffect(() => {
-    if (!cameraReady || !permission?.granted || !autoCapture) return;
+    if (!cameraReady || camAccess.access !== 'granted' || !autoCapture) return;
     let cancelled = false;
     let previous: string[] | null = null;
     const started = Date.now();
@@ -200,7 +199,7 @@ export function GuidedCamera({
     return () => {
       cancelled = true;
     };
-  }, [cameraReady, permission?.granted, autoCapture, docType.kind, sideIndex, captureFull]);
+  }, [cameraReady, camAccess.access, autoCapture, docType.kind, sideIndex, captureFull]);
 
   const onBarcode = useCallback(
     (e: BarcodeScanningResult) => {
@@ -232,26 +231,16 @@ export function GuidedCamera({
     );
   }
 
-  if (!permission?.granted) {
+  if (camAccess.access !== 'granted') {
     return (
-      <SafeAreaView style={styles.center}>
-        <Ionicons name="camera-outline" size={48} color={colors.primaryBright} />
-        <Text style={[type.h2, { marginTop: spacing.lg, textAlign: 'center' }]}>Camera access</Text>
-        <Text style={[type.bodySecondary, { textAlign: 'center', marginVertical: spacing.md }]}>
-          Docsave uses the camera only to scan your documents. Photos are read and encrypted on this device and never
-          leave it.
-        </Text>
-        <Button
-          title={permission?.canAskAgain === false ? 'Camera blocked in system settings' : 'Allow camera'}
-          disabled={permission?.canAskAgain === false}
-          onPress={() => vault.runExternal(requestPermission)}
-          style={{ alignSelf: 'stretch', marginTop: spacing.lg }}
-        />
-        {onImport ? (
-          <Button title="Import a file instead" variant="secondary" icon="folder-open-outline" onPress={onImport} style={{ alignSelf: 'stretch', marginTop: spacing.sm }} />
-        ) : null}
-        <Button title="Cancel" variant="ghost" onPress={onClose} style={{ alignSelf: 'stretch', marginTop: spacing.sm }} />
-      </SafeAreaView>
+      <CameraPermissionScreen
+        access={camAccess.access}
+        requesting={camAccess.requesting}
+        onRequest={camAccess.request}
+        onOpenSettings={camAccess.openSettings}
+        onImport={onImport}
+        onCancel={onClose}
+      />
     );
   }
 

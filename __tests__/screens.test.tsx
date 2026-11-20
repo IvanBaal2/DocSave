@@ -33,11 +33,21 @@ jest.mock('expo-router', () => {
 
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 
+let mockCameraPermission: { granted: boolean; status: string; canAskAgain: boolean } = {
+  granted: true,
+  status: 'granted',
+  canAskAgain: true,
+};
+const mockRequestCamera = jest.fn(async () => mockCameraPermission);
+const mockGetCamera = jest.fn(async () => mockCameraPermission);
 jest.mock('expo-camera', () => {
   const R = require('react');
   const { View } = require('react-native');
   const CameraView = R.forwardRef((props: object, ref: unknown) => R.createElement(View, { ...props, ref, testID: 'camera' }));
-  return { CameraView, useCameraPermissions: () => [{ granted: true, canAskAgain: true }, jest.fn()] };
+  return {
+    CameraView,
+    useCameraPermissions: () => [mockCameraPermission, mockRequestCamera, mockGetCamera],
+  };
 });
 
 jest.mock('react-native-webview', () => {
@@ -350,4 +360,96 @@ describe('settings screens', () => {
     await renderScreen(() => require(path), params);
     expect(screen.getAllByText(title).length).toBeGreaterThan(0);
   });
+});
+
+describe('camera permission', () => {
+  const { Linking } = require('react-native');
+  const { fireEvent } = require('@testing-library/react-native');
+  function Harness({ onImport }: { onImport: () => void }) {
+    const { CameraPermissionScreen, useCameraAccess } = require('../src/components/CameraPermission');
+    const a = useCameraAccess();
+    if (a.access === 'granted') {
+      const { Text } = require('react-native');
+      return <Text>camera open</Text>;
+    }
+    return (
+      <CameraPermissionScreen
+        access={a.access}
+        requesting={a.requesting}
+        onRequest={a.request}
+        onOpenSettings={a.openSettings}
+        onImport={onImport}
+        onCancel={() => {}}
+      />
+    );
+  }
+  async function mount(perm: typeof mockCameraPermission, onImport = jest.fn()) {
+    mockCameraPermission = perm;
+    await act(async () => {
+      render(<Harness onImport={onImport} />);
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    return onImport;
+  }
+  const { AppState } = require('react-native');
+  let listeners: ((s: string) => void)[] = [];
+  let appStateSpy: jest.SpyInstance;
+  const emit = async (s: string) => {
+    await act(async () => {
+      [...listeners].forEach((l) => l(s));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  };
+  beforeEach(() => {
+    listeners = [];
+    appStateSpy = jest.spyOn(AppState, 'addEventListener').mockImplementation((_e: unknown, cb: unknown) => {
+      const fn = cb as (s: string) => void;
+      listeners.push(fn);
+      return { remove: () => (listeners = listeners.filter((l) => l !== fn)) };
+    });
+  });
+  afterEach(() => appStateSpy.mockRestore());
+  afterAll(() => {
+    mockCameraPermission = { granted: true, status: 'granted', canAskAgain: true };
+  });
+
+  test('first use shows the system dialog once, automatically', async () => {
+    await mount({ granted: false, status: 'undetermined', canAskAgain: true });
+    expect(mockRequestCamera).toHaveBeenCalledTimes(1);
+  });
+  test('denied: explains and lets the user ask again, without asking automatically', async () => {
+    await mount({ granted: false, status: 'denied', canAskAgain: true });
+    expect(mockRequestCamera).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.press(screen.getByText('Allow camera'));
+    });
+    expect(mockRequestCamera).toHaveBeenCalledTimes(1);
+    // Coming back to Docsave (e.g. from the notification shade or settings) re-checks the permission.
+    mockGetCamera.mockClear();
+    await emit('active');
+    expect(mockGetCamera).toHaveBeenCalled();
+  });
+  test('blocked: Open Settings opens app settings, import and cancel available', async () => {
+    const spy = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+    const onImport = await mount({ granted: false, status: 'denied', canAskAgain: false });
+    expect(screen.getByText('Camera Access Required')).toBeTruthy();
+    expect(screen.getByText(/Camera permission is currently disabled/)).toBeTruthy();
+    expect(screen.getByText('Cancel')).toBeTruthy();
+    fireEvent.press(screen.getByText('Import a File Instead'));
+    expect(onImport).toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.press(screen.getByText('Open Settings'));
+    });
+    expect(spy).toHaveBeenCalled();
+    expect(mockRequestCamera).not.toHaveBeenCalled();
+    // The user enables the camera in Settings and comes back: permission is re-checked.
+    mockGetCamera.mockClear();
+    await emit('background');
+    await emit('active');
+    expect(mockGetCamera).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
 });

@@ -199,7 +199,7 @@ export default function ScanDocument() {
       void doc;
     } catch (e) {
       setPhase('review');
-      Alert.alert(t('Could not save'), (e as Error).message || t('Encryption or storage failed.'));
+      Alert.alert(t('Could not save'), t('Your document could not be saved. Nothing was lost; please try again.'));
     }
   }
 
@@ -289,7 +289,7 @@ export default function ScanDocument() {
         </Notice>
       ) : pages.find((p) => p.ocrError) ? (
         <Text style={[type.caption, { color: colors.warning }]}>
-          {`${t('Automatic reading failed:')} ${pages.find((p) => p.ocrError)?.ocrError}`}
+          {t('Automatic reading did not work for this photo. You can type the details yourself or save it as it is.')}
         </Text>
       ) : null}
 

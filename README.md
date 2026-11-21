@@ -17,7 +17,7 @@ Built with **Expo SDK 58 / React Native 0.88 (New Architecture)**, TypeScript an
 | **Categories** | Identity (passport, national ID front/back, driving licence, residence permit), Travel (plane/train tickets, boarding passes, hotels, insurance), Personal (birth/marriage certificates, contracts, letters, medical), Other (terms, receipts, PDFs, images, other), plus **custom folders**. |
 | **Add document** | Guided camera scanner with card / passport / A4 frames, front/back slots for ID documents, photo library import, file import (PDF, JPG, PNG, GIF, WebP, HEIC, TXT, any file ≤ 25 MB), name, category, type, notes, optional expiry or travel date. |
 | **Viewer** | Re-authentication before decrypting, in-memory decryption, offline pdf.js PDF rendering, pinch-zoom, front/back switching, edit (rename, notes, category, date), delete. Locks itself when you leave the screen or background the app. |
-| **Security** | AES-256-GCM, per-file HKDF keys, scrypt PIN key-wrapping, Keychain/Keystore storage, biometric or two-factor (biometric + PIN) unlock, auto-lock, inactivity lock, brute-force lockout, optional auto-erase, root/jailbreak detection, screenshot / app-switcher protection, backup exclusion, temp-file purging. |
+| **Security** | AES-256-GCM, per-file HKDF keys, PBKDF2 PIN key-wrapping, Keychain/Keystore storage, face → fingerprint → PIN unlock, auto-lock, inactivity lock, brute-force lockout, optional auto-erase, root/jailbreak detection, screenshot / app-switcher protection, backup exclusion, temp-file purging. |
 | **Privacy** | No account, no network (Android release builds have no INTERNET permission), no trackers, private notification text, opt-in manual diagnostics report. |
 | **Notifications** | Optional local reminders: passport/ID (6 months, chosen lead time, 7 days, on the day), travel (7 days, 1 day), other expiries. Never include names, numbers or contents. No push server; remote-push entitlement removed. |
 | **Settings** | Security settings, change PIN, Face ID / fingerprint, automatic lock, privacy settings, notifications, folders, Terms, Privacy Policy, About, delete all documents, permanently destroy vault. |
@@ -31,7 +31,7 @@ See [SECURITY.md](SECURITY.md) for the full security design and [TESTING.md](TES
 ```
 app/                          expo-router screens
   _layout.tsx                 providers + route guards (vault / lock / onboarding)
-  lock.tsx                    PIN, biometric and two-factor unlock, lockout, "forgot PIN"
+  lock.tsx                    face / fingerprint / PIN unlock, lockout, "forgot PIN"
   onboarding/                 8-step first-time setup
   (vault)/                    only mounted while the vault is unlocked
     index.tsx                 dashboard

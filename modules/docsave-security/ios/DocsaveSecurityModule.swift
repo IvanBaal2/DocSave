@@ -216,6 +216,60 @@ public class DocsaveSecurityModule: Module {
       }
       return jpeg.base64EncodedString()
     }
+
+    // Perspective correction of the quadrilateral given by four normalised corners
+    // (top-left, top-right, bottom-right, bottom-left; origin top-left), optional
+    // mild contrast/brightness enhancement, then clockwise rotation.
+    AsyncFunction("warpJpeg") { (imageB64: String, corners: [Double], quality: Double, maxDim: Int, rotation: Int, enhance: Bool) throws -> String in
+      guard corners.count == 8, let data = Data(base64Encoded: imageB64),
+            let image = Self.upright(UIImage(data: data), maxDim: maxDim), let cg = image.cgImage else { throw ImageException() }
+      let W = CGFloat(cg.width), H = CGFloat(cg.height)
+      // Core Image uses a bottom-left origin.
+      func pt(_ i: Int) -> CIVector {
+        CIVector(x: CGFloat(max(0, min(1, corners[i * 2]))) * W, y: H - CGFloat(max(0, min(1, corners[i * 2 + 1]))) * H)
+      }
+      var img = CIImage(cgImage: cg)
+      guard let warp = CIFilter(name: "CIPerspectiveCorrection") else { throw ImageException() }
+      warp.setValue(img, forKey: kCIInputImageKey)
+      warp.setValue(pt(0), forKey: "inputTopLeft")
+      warp.setValue(pt(1), forKey: "inputTopRight")
+      warp.setValue(pt(2), forKey: "inputBottomRight")
+      warp.setValue(pt(3), forKey: "inputBottomLeft")
+      guard let warped = warp.outputImage else { throw ImageException() }
+      img = warped
+      if enhance, let controls = CIFilter(name: "CIColorControls") {
+        controls.setValue(img, forKey: kCIInputImageKey)
+        controls.setValue(1.18, forKey: kCIInputContrastKey)
+        controls.setValue(0.02, forKey: kCIInputBrightnessKey)
+        if let out = controls.outputImage { img = out }
+      }
+      let context = CIContext()
+      guard let outCg = context.createCGImage(img, from: img.extent) else { throw ImageException() }
+      let orientation: UIImage.Orientation
+      switch ((rotation % 360) + 360) % 360 {
+      case 90: orientation = .right
+      case 180: orientation = .down
+      case 270: orientation = .left
+      default: orientation = .up
+      }
+      let oriented = Self.upright(UIImage(cgImage: outCg, scale: 1, orientation: orientation)) ?? UIImage(cgImage: outCg)
+      guard let jpeg = oriented.jpegData(compressionQuality: CGFloat(max(0.3, min(1, quality)))) else { throw ImageException() }
+      return jpeg.base64EncodedString()
+    }
+
+    // SHA-256 of a file (hex), used to recognise a file that was already imported.
+    AsyncFunction("sha256File") { (path: String) throws -> String in
+      let url = path.hasPrefix("file://") ? URL(string: path)! : URL(fileURLWithPath: path)
+      let handle = try FileHandle(forReadingFrom: url)
+      defer { try? handle.close() }
+      var hasher = SHA256()
+      while true {
+        let chunk = handle.readData(ofLength: 64 * 1024)
+        if chunk.isEmpty { break }
+        hasher.update(data: chunk)
+      }
+      return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

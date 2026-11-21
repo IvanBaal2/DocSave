@@ -105,7 +105,7 @@ export default function DocumentViewer() {
         setError(
           e instanceof TamperError
             ? tr('Integrity check failed: this encrypted file was modified or corrupted and cannot be trusted.')
-            : (e as Error).message || tr('The document could not be decrypted.'),
+            : tr('The document could not be opened. Please try again.'),
         ),
       )
       .finally(() => !cancelled && setLoading(false));
@@ -142,7 +142,7 @@ export default function DocumentViewer() {
                 exportPage(bytes, `${displayName(doc!.name)} ${doc!.pages.length > 1 ? page.label : ''}`, page.mimeType),
               );
             } catch (e) {
-              Alert.alert(t('Export failed'), (e as Error)?.message || t('The page could not be exported.'));
+              Alert.alert(t('Export failed'), t('The page could not be exported. Please try again.'));
             }
           },
         },

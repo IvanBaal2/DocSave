@@ -4,7 +4,6 @@ import React from 'react';
 import { Text } from 'react-native';
 import { Header, Screen, SectionTitle, SettingRow, SettingsGroup } from '../../../src/components/ui';
 import { LANGUAGES, useI18n } from '../../../src/i18n';
-import { readPrefs } from '../../../src/prefs';
 import { useReauth } from '../../../src/security/ReauthProvider';
 import { colors, spacing, type } from '../../../src/theme/theme';
 import { autoLockLabel } from '../../../src/utils/format';
@@ -24,16 +23,12 @@ export default function SettingsHome() {
   const unlockValue =
     mode === 'pin'
       ? t('PIN only')
-      : mode === 'pin_and_bio'
-        ? t('Two-factor')
-        : biometrics.face && biometrics.fingerprint
+      : biometrics.face && biometrics.fingerprint
           ? t('Face, fingerprint, PIN')
           : biometrics.face
             ? t('Face, PIN')
             : t('Fingerprint, PIN');
 
-  const theme = readPrefs().theme ?? 'system';
-  const themeLabel = theme === 'light' ? t('Light') : theme === 'dark' ? t('Dark') : t('System');
 
   async function openDanger(action: 'delete-all' | 'destroy') {
     if (await authenticate(t('Confirm to manage destructive actions'), { pinOnly: true })) {
@@ -82,12 +77,6 @@ export default function SettingsHome() {
           title={t('Language')}
           value={LANGUAGES.find((l) => l.code === lang)?.name}
           onPress={() => router.push('/settings/language')}
-        />
-        <SettingRow
-          icon="contrast-outline"
-          title={t('Appearance')}
-          value={themeLabel}
-          onPress={() => router.push('/settings/appearance')}
         />
         <SettingRow
           icon="notifications-outline"

@@ -11,7 +11,7 @@ export type DocTypeDef = {
   /** Index from which steps may be skipped. */
   optionalFrom?: number;
   /** Camera guide shape. */
-  frame: 'card' | 'passport' | 'document';
+  frame: 'card' | 'passport' | 'document' | 'photo';
   /** What the on-device recogniser looks for. */
   kind: ScanKind;
   /** Allow adding extra pages after the defined slots. */
@@ -267,16 +267,40 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
     ]
   },
   {
-    "id": "wallet",
-    "name": "Cards & Coupons",
-    "icon": "wallet-outline",
+    "id": "cards",
+    "name": "Cards",
+    "icon": "card-outline",
     "color": "#F472B6",
-    "description": "Loyalty cards, gift cards, coupons",
+    "description": "Bank, membership, loyalty and gift cards",
     "builtIn": true,
     "types": [
-      { "id": "loyalty_card", "label": "Loyalty Card", "icon": "card-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "loyalty", "hint": "Reads the barcode automatically" },
-      { "id": "gift_card", "label": "Gift Card", "icon": "gift-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "giftcard", "hint": "Card number, PIN and value" },
-      { "id": "coupon", "label": "Coupon", "icon": "pricetag-outline", "slots": ["Coupon"], "frame": "document", "kind": "coupon", "hint": "Code, offer and expiry" }
+      { "id": "bank_card", "label": "Bank Card", "icon": "card-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "generic-card", "hint": "Stored as an image only" },
+      { "id": "membership_card", "label": "Membership Card", "icon": "people-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "loyalty", "hint": "Gym, club or association card" },
+      { "id": "loyalty_card", "label": "Loyalty Card", "icon": "ribbon-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "loyalty", "hint": "Reads the barcode automatically" },
+      { "id": "gift_card", "label": "Gift Card", "icon": "gift-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "giftcard", "hint": "Card number, PIN and value" }
+    ]
+  },
+  {
+    "id": "coupons",
+    "name": "Coupons and Vouchers",
+    "icon": "pricetag-outline",
+    "color": "#FB923C",
+    "description": "Coupons, vouchers, discount codes",
+    "builtIn": true,
+    "types": [
+      { "id": "coupon", "label": "Coupon", "icon": "pricetag-outline", "slots": ["Coupon"], "frame": "document", "kind": "coupon", "hint": "Code, offer and expiry" },
+      { "id": "voucher", "label": "Voucher", "icon": "ticket-outline", "slots": ["Voucher"], "frame": "document", "kind": "coupon", "hint": "Gift or travel voucher" }
+    ]
+  },
+  {
+    "id": "receipts",
+    "name": "Receipts",
+    "icon": "receipt-outline",
+    "color": "#FACC15",
+    "description": "Purchases, invoices, warranty proof",
+    "builtIn": true,
+    "types": [
+      { "id": "receipt", "label": "Receipt", "icon": "receipt-outline", "slots": ["Receipt"], "frame": "document", "kind": "receipt", "hint": "Purchases, warranty proof", "multiPage": true }
     ]
   },
   {
@@ -284,7 +308,7 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
     "name": "Other Documents",
     "icon": "folder-open-outline",
     "color": "#A78BFA",
-    "description": "PDFs, receipts, anything else",
+    "description": "PDFs, letters, anything else",
     "builtIn": true,
     "types": [
       {
@@ -324,17 +348,6 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
         "multiPage": true
       },
       {
-        "id": "receipt",
-        "label": "Receipt",
-        "icon": "receipt-outline",
-        "slots": [
-          "Receipt"
-        ],
-        "frame": "document",
-        "kind": "generic",
-        "hint": "Purchases, warranty proof"
-      },
-      {
         "id": "terms",
         "label": "Terms and Conditions",
         "icon": "reader-outline",
@@ -347,8 +360,22 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
         "multiPage": true
       }
     ]
+  },
+  {
+    "id": "photos",
+    "name": "General Photos",
+    "icon": "image-outline",
+    "color": "#38BDF8",
+    "description": "Ordinary photos that are not documents",
+    "builtIn": true,
+    "types": [
+      { "id": "photo", "label": "Photo", "icon": "image-outline", "slots": ["Photo"], "frame": "photo", "kind": "photo", "hint": "Any picture; nothing is read from it", "multiPage": true }
+    ]
   }
 ];
+
+/** Older vaults used one combined "Cards & Coupons" category. */
+const LEGACY_CATEGORY: Record<string, string> = { wallet: 'cards' };
 
 /** Generic scan settings used for custom folders. */
 export const GENERIC_TYPE: DocTypeDef = {
@@ -400,12 +427,15 @@ export function allCategories(custom: CustomCategory[]): CategoryDef[] {
 }
 
 export function findCategory(id: string, custom: CustomCategory[]): CategoryDef | undefined {
-  return allCategories(custom).find((c) => c.id === id);
+  const real = LEGACY_CATEGORY[id] ?? id;
+  return allCategories(custom).find((c) => c.id === real);
 }
 
+/** The type of a saved document, also when its type later moved to another category. */
 export function findDocType(categoryId: string, docType?: string): DocTypeDef | undefined {
   if (!docType) return undefined;
-  return BUILT_IN_CATEGORIES.find((c) => c.id === categoryId)?.types.find((t) => t.id === docType);
+  const real = LEGACY_CATEGORY[categoryId] ?? categoryId;
+  return BUILT_IN_CATEGORIES.find((c) => c.id === real)?.types.find((t) => t.id === docType) ?? findDocTypeAny(docType)?.type;
 }
 
 /** The documents people need most often: shown as quick-access tiles. */

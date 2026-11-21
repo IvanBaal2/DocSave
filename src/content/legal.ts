@@ -189,7 +189,7 @@ export const PRIVACY: LegalDocument = {
 
 export const TERMS: LegalDocument = {
   title: 'Terms & Conditions',
-  version: '2.0-draft',
+  version: '2.1-draft',
   updated: '19 November 2026',
   status: 'draft',
   sections: [
@@ -250,7 +250,7 @@ export const TERMS: LegalDocument = {
     {
       heading: '11. No recovery',
       body: [
-        'There is no recovery service. Nobody, including the publisher, can open your vault or reset your PIN. Your documents are permanently lost if you forget your PIN, lose or reset your device, uninstall Docsave, enable auto-erase and enter the wrong PIN too many times, or — in two-factor mode — your enrolled biometrics change.',
+        'There is no recovery service. Nobody, including the publisher, can open your vault or reset your PIN. Your documents are permanently lost if you forget your PIN, lose or reset your device, uninstall Docsave, or enable auto-erase and enter the wrong PIN too many times.',
       ],
     },
     {

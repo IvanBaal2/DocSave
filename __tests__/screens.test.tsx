@@ -101,9 +101,23 @@ jest.mock('expo-file-system', () => ({
     async text() {
       return '';
     }
+    open() {
+      // every picked test file starts like a PDF
+      return { readBytes: () => new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]), close: () => {} };
+    }
   },
   Directory: class {},
   Paths: {},
+}));
+
+const mockPickedFiles: { current: unknown[] } = { current: [] };
+const mockPickedPhotos: { current: unknown[] } = { current: [] };
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn(async () => ({ canceled: false, assets: mockPickedFiles.current })),
+}));
+jest.mock('expo-image-picker', () => ({
+  launchImageLibraryAsync: jest.fn(async () => ({ canceled: false, assets: mockPickedPhotos.current })),
+  UIImagePickerPreferredAssetRepresentationMode: { Compatible: 'compatible' },
 }));
 
 jest.mock('../modules/docsave-security', () => ({
@@ -115,6 +129,8 @@ jest.mock('../modules/docsave-security', () => ({
   recognizeBest: jest.fn(async () => ({ width: 1, height: 1, lines: [], rotation: 0 })),
   cropJpeg: jest.fn(async (b: string) => b),
   rotateJpeg: jest.fn(async (b: string) => b),
+  warpJpeg: jest.fn(async (b: string) => b),
+  sha256File: jest.fn(async (path: string) => `hash-${path}`),
   readLastCrash: () => null,
   clearLastCrash: () => {},
   nativeErrorCode: () => undefined,
@@ -349,7 +365,6 @@ describe('settings screens', () => {
     ['../app/(vault)/settings/rights', 'Your privacy rights', {}],
     ['../app/(vault)/settings/notifications', 'Reminders', {}],
     ['../app/(vault)/settings/language', 'Language', {}],
-    ['../app/(vault)/settings/appearance', 'Appearance', {}],
     ['../app/onboarding/language', 'Language', {}],
     ['../app/(vault)/settings/about', 'About Docsave', {}],
     ['../app/(vault)/settings/terms', 'Terms & Conditions', {}],
@@ -374,7 +389,7 @@ describe('unlock order and settings', () => {
   });
   test('settings home shows each function once', async () => {
     await renderScreen(() => require('../app/(vault)/settings/index'));
-    for (const title of ['Unlock methods', 'Change PIN', 'Automatic lock', 'Language', 'Appearance', 'Reminders', 'Privacy Policy', 'Delete all documents']) {
+    for (const title of ['Unlock methods', 'Change PIN', 'Automatic lock', 'Language', 'Reminders', 'Privacy Policy', 'Delete all documents']) {
       expect(screen.getAllByText(title)).toHaveLength(1);
     }
   });
@@ -385,6 +400,58 @@ describe('unlock order and settings', () => {
     expect(screen.getByText('الإعدادات')).toBeTruthy();
     await act(async () => setLanguage('en'));
     expect(screen.getByText('Settings')).toBeTruthy();
+  });
+});
+
+describe('import files', () => {
+  test('several files: each previewed, sorted and saved; unsupported ones explained', async () => {
+    mockPickedFiles.current = [
+      { uri: 'file:///cache/Boarding pass MAD-LHR.pdf', name: 'Boarding pass MAD-LHR.pdf', mimeType: 'application/pdf', size: 2048 },
+      { uri: 'file:///cache/notes 2026.pdf', name: 'notes 2026.pdf', mimeType: 'application/pdf', size: 4096 },
+      { uri: 'file:///cache/setup.exe', name: 'setup.exe', mimeType: 'application/octet-stream', size: 4096 },
+    ];
+    mockVault.addDocument.mockClear();
+    await renderScreen(() => require('../app/(vault)/import'), { source: 'files' });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(screen.getByDisplayValue('Boarding pass MAD-LHR')).toBeTruthy();
+    expect(screen.getByText('Recognised as Boarding Pass')).toBeTruthy();
+    expect(screen.getByDisplayValue('notes 2026')).toBeTruthy();
+    expect(screen.getByText(/Not recognised. Saved under Other Documents/)).toBeTruthy();
+    expect(screen.getByText(/This file type is not supported/)).toBeTruthy();
+    const { fireEvent } = require('@testing-library/react-native');
+    await act(async () => {
+      fireEvent.press(screen.getByText('Encrypt & save 2 documents'));
+    });
+    expect(mockVault.addDocument).toHaveBeenCalledTimes(2);
+    expect(mockVault.addDocument.mock.calls[0][0]).toMatchObject({ name: 'Boarding pass MAD-LHR', categoryId: 'travel', docType: 'boarding_pass' });
+    expect(mockVault.addDocument.mock.calls[1][0]).toMatchObject({ categoryId: 'other', docType: 'pdf' });
+    expect(mockVault.addDocument.mock.calls[0][0].pages[0]).toMatchObject({ fileName: 'Boarding pass MAD-LHR.pdf', sha256: expect.any(String) });
+  });
+  test('an ordinary photo is accepted as a general photo', async () => {
+    mockPickedPhotos.current = [{ uri: 'file:///cache/IMG_1.jpg', fileName: 'IMG_1.jpg', mimeType: 'image/png', base64: PNG_1PX }];
+    await renderScreen(() => require('../app/(vault)/import'), { source: 'photos' });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(screen.getByText(/Saved as a general photo/)).toBeTruthy();
+    expect(screen.getAllByText('General Photos').length).toBeGreaterThan(0);
+  });
+});
+
+describe('removed features', () => {
+  test('no Appearance and no two-factor option in settings', async () => {
+    await renderScreen(() => require('../app/(vault)/settings/index'));
+    expect(screen.queryByText('Appearance')).toBeNull();
+    await renderScreen(() => require('../app/(vault)/settings/security'), { section: 'unlock' });
+    expect(screen.queryByText(/two-factor/i)).toBeNull();
+  });
+  test('home has camera and import entry points', async () => {
+    await renderScreen(() => require('../app/(vault)/index'));
+    expect(screen.getByText('Add Document')).toBeTruthy();
+    expect(screen.getByText('Import files')).toBeTruthy();
+    expect(screen.getByText('Import photos')).toBeTruthy();
   });
 });
 

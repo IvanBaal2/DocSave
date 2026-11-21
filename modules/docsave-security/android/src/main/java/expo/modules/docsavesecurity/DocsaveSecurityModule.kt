@@ -200,6 +200,67 @@ class DocsaveSecurityModule : Module() {
       src.recycle()
       b64e(out.toByteArray())
     }
+
+    // Perspective correction: maps the quadrilateral given by four normalised
+    // corners (top-left, top-right, bottom-right, bottom-left; 0..1) onto a flat
+    // rectangle. Optional mild enhancement (contrast/brightness) for readability;
+    // no content is added or removed. Then rotates clockwise by `rotation`.
+    AsyncFunction("warpJpeg") { imageB64: String, corners: List<Double>, quality: Double, maxDim: Int, rotation: Int, enhance: Boolean ->
+      if (corners.size != 8) throw CodedException("ERR_ARGS", "Four corners are required", null)
+      val src = decodeUpright(b64d(imageB64), maxDim)
+        ?: throw CodedException("ERR_IMAGE", "The image could not be decoded", null)
+      val pts = FloatArray(8) { i ->
+        val v = corners[i].coerceIn(0.0, 1.0)
+        (if (i % 2 == 0) v * src.width else v * src.height).toFloat()
+      }
+      fun dist(ax: Float, ay: Float, bx: Float, by: Float) = Math.hypot((ax - bx).toDouble(), (ay - by).toDouble())
+      val outW = maxOf(dist(pts[0], pts[1], pts[2], pts[3]), dist(pts[6], pts[7], pts[4], pts[5])).toInt().coerceIn(1, 6000)
+      val outH = maxOf(dist(pts[0], pts[1], pts[6], pts[7]), dist(pts[2], pts[3], pts[4], pts[5])).toInt().coerceIn(1, 6000)
+      val dst = floatArrayOf(0f, 0f, outW.toFloat(), 0f, outW.toFloat(), outH.toFloat(), 0f, outH.toFloat())
+      val m = Matrix()
+      if (!m.setPolyToPoly(pts, 0, dst, 0, 4)) {
+        src.recycle()
+        throw CodedException("ERR_SHAPE", "The selected area is not a valid shape", null)
+      }
+      var out = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+      val canvas = android.graphics.Canvas(out)
+      canvas.drawColor(android.graphics.Color.WHITE)
+      val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG)
+      if (enhance) {
+        // Contrast 1.18 around mid-grey, slight brightness lift.
+        val c = 1.18f
+        val t = (-0.5f * c + 0.5f) * 255f + 6f
+        paint.colorFilter = android.graphics.ColorMatrixColorFilter(
+          android.graphics.ColorMatrix(floatArrayOf(c, 0f, 0f, 0f, t, 0f, c, 0f, 0f, t, 0f, 0f, c, 0f, t, 0f, 0f, 0f, 1f, 0f))
+        )
+      }
+      canvas.drawBitmap(src, m, paint)
+      src.recycle()
+      val deg = ((rotation % 360) + 360) % 360
+      if (deg != 0) {
+        val rotated = Bitmap.createBitmap(out, 0, 0, out.width, out.height, Matrix().apply { postRotate(deg.toFloat()) }, true)
+        if (rotated != out) out.recycle()
+        out = rotated
+      }
+      val bytes = ByteArrayOutputStream()
+      out.compress(Bitmap.CompressFormat.JPEG, (quality * 100).toInt().coerceIn(30, 100), bytes)
+      out.recycle()
+      b64e(bytes.toByteArray())
+    }
+
+    // SHA-256 of a file (hex), used to recognise a file that was already imported.
+    AsyncFunction("sha256File") { path: String ->
+      val digest = java.security.MessageDigest.getInstance("SHA-256")
+      File(stripScheme(path)).inputStream().use { input ->
+        val buf = ByteArray(64 * 1024)
+        while (true) {
+          val n = input.read(buf)
+          if (n <= 0) break
+          digest.update(buf, 0, n)
+        }
+      }
+      digest.digest().joinToString("") { "%02x".format(it) }
+    }
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

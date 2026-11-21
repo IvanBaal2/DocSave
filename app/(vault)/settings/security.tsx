@@ -103,21 +103,7 @@ export default function SecuritySettings() {
         setBusy(false);
       }
     };
-    if (next === 'pin_and_bio') {
-      Alert.alert(
-        t('Enable two-factor unlock?'),
-        t(
-          'Both {method} and your PIN will be required. The key becomes bound to your currently enrolled biometrics: if you add, remove or reset {method}, the vault can never be opened again — there is no recovery.',
-          { method: bioLabel },
-        ),
-        [
-          { text: t('Cancel'), style: 'cancel' },
-          { text: t('I understand, enable'), style: 'destructive', onPress: apply },
-        ],
-      );
-    } else {
-      apply();
-    }
+    apply();
   }
 
   async function toggleWipe(on: boolean) {
@@ -193,14 +179,6 @@ export default function SecuritySettings() {
               toggle={bioOn}
               onToggle={(on) => changeMode(on ? 'pin_or_bio' : 'pin')}
               disabled={busy || (!bioUsable && !bioOn)}
-            />
-            <SettingRow
-              icon="shield-half-outline"
-              title={t('Two-factor unlock')}
-              subtitle={t('Face or fingerprint and PIN, every time')}
-              toggle={mode === 'pin_and_bio'}
-              onToggle={(on) => changeMode(on ? 'pin_and_bio' : 'pin_or_bio')}
-              disabled={busy || !bioUsable || !biometrics.enrolled}
             />
             <SettingRow icon="keypad-outline" title={t('Change PIN')} onPress={() => router.push('/settings/change-pin')} />
           </SettingsGroup>

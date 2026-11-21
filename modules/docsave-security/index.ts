@@ -21,6 +21,8 @@ type NativeModuleShape = {
   openFile(keyB64: string, aad: string, path: string): Promise<string>;
   recognizeText(imageB64: string, maxDim: number, rotation: number): Promise<OcrResult>;
   cropJpeg(imageB64: string, x: number, y: number, w: number, h: number, quality: number, maxDim: number, rotation: number): Promise<string>;
+  warpJpeg(imageB64: string, corners: number[], quality: number, maxDim: number, rotation: number, enhance: boolean): Promise<string>;
+  sha256File(path: string): Promise<string>;
   readLastCrash(): string | null;
   clearLastCrash(): boolean;
 };
@@ -114,6 +116,28 @@ export async function cropJpeg(
 export async function rotateJpeg(imageB64: string, rotation: number, quality = 0.9) {
   if (!Native || !rotation) return imageB64;
   return Native.cropJpeg(imageB64, 0, 0, 1, 1, quality, 0, rotation);
+}
+
+/** Four corners, normalised 0..1, in the order top-left, top-right, bottom-right, bottom-left. */
+export type Quad = [number, number, number, number, number, number, number, number];
+
+/**
+ * Straightens (perspective-corrects) the area inside four corners, optionally
+ * with mild contrast/brightness enhancement, then rotates clockwise.
+ */
+export async function warpJpeg(imageB64: string, corners: Quad, opts: { rotation?: number; enhance?: boolean; quality?: number; maxDim?: number } = {}) {
+  if (!Native) return imageB64;
+  return Native.warpJpeg(imageB64, corners, opts.quality ?? 0.9, opts.maxDim ?? 3200, opts.rotation ?? 0, !!opts.enhance);
+}
+
+/** SHA-256 (hex) of a local file, or null when unavailable. */
+export async function sha256File(path: string): Promise<string | null> {
+  if (!Native) return null;
+  try {
+    return await Native.sha256File(path);
+  } catch {
+    return null;
+  }
 }
 
 /** Technical details of the last native crash (Android), if any. */

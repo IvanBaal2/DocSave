@@ -1,13 +1,12 @@
 /**
- * Display preferences (language, appearance). They are NOT secret and are
+ * Display preferences (language). They are NOT secret and are
  * needed before the vault is unlocked (lock screen, setup), so they live in a
  * small JSON file in the app's private storage, read synchronously at start-up.
  * Nothing about documents is ever written here.
  */
 import { File, Paths } from 'expo-file-system';
 
-export type ThemePref = 'system' | 'light' | 'dark';
-export type Prefs = { language?: string; theme?: ThemePref };
+export type Prefs = { language?: string };
 
 let cache: Prefs | null = null;
 

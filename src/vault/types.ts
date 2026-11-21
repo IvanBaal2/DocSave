@@ -3,7 +3,10 @@ export type UnlockMode =
   | 'pin'
   /** PIN, or Face ID / fingerprint as a faster alternative. */
   | 'pin_or_bio'
-  /** Two factors: Face ID / fingerprint AND PIN are both required. */
+  /**
+   * LEGACY (withdrawn): face/fingerprint AND PIN. Can no longer be chosen; vaults
+   * created with it open once more and are then moved to 'pin_or_bio'.
+   */
   | 'pin_and_bio';
 
 /** How biometric unlock is protected: OS-enforced key (hardware) or OS prompt + Keystore-encrypted key. */
@@ -24,6 +27,10 @@ export type PageRecord = {
   label: string;
   mimeType: string;
   size: number;
+  /** Original file name of an imported file (kept for the user, never uploaded). */
+  fileName?: string;
+  /** SHA-256 of the imported content, used only to warn about duplicate imports. */
+  sha256?: string;
 };
 
 export type DocumentRecord = {
@@ -126,6 +133,8 @@ export type PendingPage = {
   base64?: string;
   fileUri?: string;
   size?: number;
+  fileName?: string;
+  sha256?: string;
 };
 
 export type NewDocumentInput = {

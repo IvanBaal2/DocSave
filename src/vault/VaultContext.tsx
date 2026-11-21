@@ -353,6 +353,20 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
           const wrapped = twoFactorWrapped.current;
           if (!wrapped) return { ok: false, error: t('Verify with {method} first.', { method: t(biometrics.label) }) };
           key = await Keys.unlockTwoFactor(wrapped, pin);
+          // Two-factor unlock has been withdrawn. Vaults created with it still open
+          // here once, then move to "face or fingerprint, PIN as backup" (or PIN
+          // only if this phone refuses biometric keys). No data is touched.
+          const legacy = metaRef.current!;
+          let migrated: VaultMeta | null = null;
+          try {
+            migrated = await runExternal(() => Keys.applyUnlockMode(key, pin, legacy, 'pin_or_bio'));
+          } catch {
+            migrated = await Keys.applyUnlockMode(key, pin, legacy, 'pin').catch(() => null);
+          }
+          if (migrated) {
+            metaRef.current = migrated;
+            setMeta(migrated);
+          }
         } else {
           key = await Keys.unlockWithPin(pin);
         }
@@ -476,7 +490,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         const id = Store.newId();
         written.push(id);
         const { size, head } = await Store.writeBlob(key, id, p);
-        pages.push({ id, label: p.label, mimeType: sniffMime(head, p.mimeType), size });
+        pages.push({
+          id,
+          label: p.label,
+          mimeType: sniffMime(head, p.mimeType),
+          size,
+          ...(p.fileName ? { fileName: p.fileName } : {}),
+          ...(p.sha256 ? { sha256: p.sha256 } : {}),
+        });
       }
       const doc: DocumentRecord = {
         id: Store.newId(),

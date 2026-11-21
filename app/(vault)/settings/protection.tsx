@@ -45,9 +45,7 @@ export default function Protection() {
       value:
         mode === 'pin'
           ? t('PIN only')
-          : mode === 'pin_and_bio'
-            ? t('Two-factor')
-            : biometrics.face
+          : biometrics.face
               ? t('Face, fingerprint, PIN')
               : t('Fingerprint, PIN'),
     },

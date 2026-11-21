@@ -17,6 +17,7 @@ export const FRAME_ASPECT = {
   card: 85.6 / 54, // ID-1 card
   passport: 125 / 88, // ID-3 passport data page
   document: 210 / 297, // A4 portrait
+  photo: 3 / 4, // no guide is drawn for photos; used only as a fallback
 } as const;
 
 /**
@@ -71,6 +72,9 @@ const MIN_LINES: Record<ScanKind, number> = {
   boarding: 5,
   ticket: 6,
   certificate: 5,
+  receipt: 5,
+  'generic-card': 3,
+  photo: Number.POSITIVE_INFINITY, // photos are taken with the shutter only
   generic: 5,
 };
 

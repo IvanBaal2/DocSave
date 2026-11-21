@@ -42,9 +42,10 @@ const DATA_FILES = [
   'src/scan/extract.ts',
   'src/scan/capture.ts',
   'src/crypto/core.ts',
-  'src/security/importers.ts',
+
   'src/vault/VaultContext.tsx',
   'src/vault/keyManager.ts',
+  'src/security/importers.ts',
   'src/i18n/index.ts',
   'src/content/legal.ts',
   'src/components/GuidedCamera.tsx',
@@ -57,7 +58,7 @@ const DATA_FILES = [
   'app/(vault)/settings/appearance.tsx',
   'app/(vault)/settings/rights.tsx',
 ];
-const DATA_KEYS = /(?:label|hint|name|title|body|text|message|english|description)\s*:\s*(['"])((?:\\.|(?!\1)[^\\\n])*)\1/g;
+const DATA_KEYS = /(?:label|hint|name|title|body|text|message|english|description|problem)\s*:\s*(['"])((?:\\.|(?!\1)[^\\\n])*)\1/g;
 const PAIRS = /\[\s*'[A-Za-z_]+'\s*,\s*'([^'\n]+)'\s*\]/g; // ['key', 'Label'] templates
 const SLOTS = /"slots":\s*\[([^\]]*)\]|slots:\s*\[([^\]]*)\]/g;
 const RETURNS = /return\s+'([A-Z][^'\n]+)'/g; // validatePin messages
@@ -90,6 +91,9 @@ for (const rel of DATA_FILES) {
     add(m[2]);
   }
 }
+
+// Strings built at run time that the patterns above cannot see
+for (const s of ['Page {n}', 'Face ID', 'Touch ID', 'Face or fingerprint', 'Face unlock', 'Fingerprint']) strings.add(s);
 
 // Technical values that are never shown translated
 for (const s of ['AES-256-GCM', 'AES-256-GCM (authenticated)', 'Platform CSPRNG']) strings.delete(s);

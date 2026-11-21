@@ -10,7 +10,7 @@ import { IntegrityWarning } from '../src/components/IntegrityWarning';
 import { PrivacyShield } from '../src/security/PrivacyShield';
 import { ReauthProvider } from '../src/security/ReauthProvider';
 import { useI18n } from '../src/i18n';
-import { colors, scheme } from '../src/theme/theme';
+import { colors } from '../src/theme/theme';
 import { VaultProvider, useVault } from '../src/vault/VaultContext';
 
 installGlobalErrorHandler();
@@ -72,7 +72,7 @@ function RootNavigator() {
         return false;
       }}
     >
-      <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
+      <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerShown: false,

@@ -53,7 +53,7 @@ NO ACCOUNT. NO CLOUD. NO TRACKING.
 
 BUILT FOR SECURITY
 • AES-256-GCM authenticated encryption with tamper detection
-• Unlock with PIN, Face ID / fingerprint, or require both (two-factor)
+• Unlock with your face or fingerprint, with a PIN as backup
 • Automatic locking when you leave the app
 • Protection against repeated wrong PINs, with optional auto-erase
 • Content hidden in the app switcher; screenshots blocked

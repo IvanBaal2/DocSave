@@ -22,6 +22,11 @@ export type ScanKind =
   | 'giftcard'
   | 'coupon'
   | 'certificate'
+  | 'receipt'
+  /** A card stored as an image only (bank cards): nothing is read from it. */
+  | 'generic-card'
+  /** An ordinary photo: nothing is read from it. */
+  | 'photo'
   | 'generic';
 
 export type Extraction = {
@@ -122,6 +127,13 @@ const TEMPLATES: Record<ScanKind, [string, string][]> = {
     ['title', 'Title'],
     ['documentDate', 'Date on document'],
   ],
+  receipt: [
+    ['merchant', 'Shop / merchant'],
+    ['documentDate', 'Date of purchase'],
+    ['total', 'Total'],
+  ],
+  'generic-card': [],
+  photo: [],
 };
 
 export function emptyFields(kind: ScanKind): DocField[] {
@@ -590,6 +602,23 @@ function ticketFromText(lines: string[]) {
   };
 }
 
+// ── Receipts ──────────────────────────────────────────────────────────────────
+
+const TOTAL_LABEL = /\b(total|importe|totale|gesamt|summe|montant|valor|amount due|a pagar|à payer|zu zahlen)\b/i;
+const MONEY = /(?:[€$£]\s*)?\d{1,3}(?:[.,\s]\d{3})*[.,]\d{2}(?:\s*(?:€|eur|usd|gbp|\$|£))?/i;
+
+/** Shop name (first text line), purchase date and total, only when they are printed on the receipt. */
+export function extractReceipt(lines: string[]): { merchant?: string; documentDate?: string; total?: string } {
+  const merchant = lines.find((l) => /[A-Za-zÀ-ÿ]{3,}/.test(l) && l.length <= 48 && !TOTAL_LABEL.test(l));
+  const documentDate = allDates(lines)[0];
+  let total: string | undefined;
+  for (let i = 0; i < lines.length && !total; i++) {
+    if (!TOTAL_LABEL.test(lines[i]) || /sub\s*-?total/i.test(lines[i])) continue;
+    total = (MONEY.exec(lines[i]) ?? MONEY.exec(lines[i + 1] ?? ''))?.[0]?.trim();
+  }
+  return { merchant, documentDate, total };
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -598,6 +627,17 @@ function ticketFromText(lines: string[]) {
  */
 export function extract(kind: ScanKind, lines: string[], barcode?: string): Extraction {
   const clean = lines.map((l) => l.trim()).filter(Boolean);
+
+  // Photos and image-only cards: nothing is read, nothing is required.
+  if (kind === 'photo' || kind === 'generic-card') {
+    return { fields: [], keyDate: undefined, source: 'none', verified: false };
+  }
+
+  if (kind === 'receipt') {
+    const r = extractReceipt(clean);
+    const fields = fill(kind, r);
+    return { fields, keyDate: undefined, source: r.merchant || r.total || r.documentDate ? 'text' : 'none', verified: false };
+  }
 
   if (kind === 'passport' || kind === 'id-card') {
     const mrz = findMrz(clean);

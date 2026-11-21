@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, type BarcodeScanningResult } from 'expo-camera';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { ActivityIndicator, Animated, Image, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { cropJpeg, isNativeSecurityAvailable, recognizeBest, recognizeText, rotateJpeg } from '../../modules/docsave-security';
 import { FRAME_ASPECT, assessSnapshot, screenRectToPhoto, type Rect } from '../scan/capture';
@@ -10,6 +10,9 @@ import { deleteTempFile } from '../security/secureTemp';
 import { colors, spacing, type } from '../theme/theme';
 import type { DocTypeDef } from '../vault/categories';
 import { CameraPermissionScreen, useCameraAccess } from './CameraPermission';
+import { PageEditor } from './PageEditor';
+import { FULL_QUAD, rectToQuad } from '../scan/geometry';
+import type { Quad } from '../../modules/docsave-security';
 import { tLabel, useI18n } from '../i18n';
 import { Button, haptic } from './ui';
 
@@ -76,6 +79,11 @@ export function GuidedCamera({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [pictureSize, setPictureSize] = useState<string | undefined>();
   const [portrait, setPortrait] = useState(!!docType.portrait);
+  const [facing, setFacing] = useState<'back' | 'front'>('back');
+  // Photo waiting for the user to accept, retake or adjust it.
+  const [review, setReview] = useState<{ b64: string; w: number; h: number; quad: Quad } | null>(null);
+  const [round, setRound] = useState(0);
+  const isPhoto = docType.kind === 'photo';
   // Flash: off while previewing; automatic (fires only when it is dark) for the final photo.
   const [flash, setFlash] = useState<'off' | 'auto'>('off');
   const wallet = WALLET_KINDS.has(docType.kind);
@@ -84,10 +92,11 @@ export function GuidedCamera({
   const barcodeRef = useRef<string | undefined>(undefined);
   const pulse = useRef(new Animated.Value(0)).current;
   const autoCapture = isNativeSecurityAvailable;
+  const autoScan = autoCapture && !isPhoto;
 
   // Guide frame geometry in screen coordinates.
   const frame: Rect | null = (() => {
-    if (!layout) return null;
+    if (!layout || docType.frame === 'photo') return null;
     const base = FRAME_ASPECT[docType.frame];
     const aspect = docType.frame === 'card' && portrait ? 1 / base : base;
     let w = layout.width * (docType.frame === 'document' || portrait ? 0.78 : 0.9);
@@ -120,44 +129,67 @@ export function GuidedCamera({
     capturingRef.current = true;
     setCapturing(true);
     try {
-      if (!torch) {
+      if (!torch && facing === 'back') {
         setFlash('auto');
         await sleep(120);
       }
-      const photo = await cam.current.takePictureAsync({ quality: 0.85, base64: true, exif: false, shutterSound: false });
+      const photo = await cam.current.takePictureAsync({ quality: 0.9, base64: true, exif: false, shutterSound: false });
       setFlash('off');
       deleteTempFile(photo?.uri);
       if (!photo?.base64) throw new Error('No image');
+      // Keep the whole original (upright, size-limited); the user decides how to crop it.
+      const original = await cropJpeg(photo.base64, { x: 0, y: 0, w: 1, h: 1 }, 0.92, 3200);
+      const size = await new Promise<{ w: number; h: number }>((resolve) =>
+        Image.getSize(
+          `data:image/jpeg;base64,${original}`,
+          (w, h) => resolve({ w, h }),
+          () => resolve({ w: photo.width, h: photo.height }),
+        ),
+      );
       const f = frameRef.current;
       const l = layoutRef.current;
-      let base64 =
-        f && l
-          ? await cropJpeg(photo.base64, screenRectToPhoto(f, l, { width: photo.width, height: photo.height }, 0.06), 0.9, 3200)
-          : photo.base64;
-      let lines: string[] = [];
-      let ocrError: string | undefined;
-      if (autoCapture) {
-        try {
-          const best = await recognizeBest(base64, 2400);
-          lines = best.lines.map((x) => x.text);
-          // Text was found sideways / upside down: store the photo upright.
-          if (best.rotation) base64 = await rotateJpeg(base64, best.rotation);
-        } catch (e) {
-          ocrError = (e as Error)?.message || t('Text recognition failed');
-        }
-      }
+      const quad = f && l ? rectToQuad(screenRectToPhoto(f, l, { width: size.w, height: size.h }, 0.03)) : FULL_QUAD;
       haptic.success();
-      onCaptured({ base64, lines, barcode: barcodeRef.current, ocrError });
+      setReview({ b64: original, w: size.w, h: size.h, quad });
+      setCapturing(false);
     } catch {
       setHint('Capture failed, try again');
       capturingRef.current = false;
       setCapturing(false);
     }
-  }, [autoCapture, onCaptured, torch]);
+  }, [torch, facing]);
+
+  /** The user accepted the (possibly adjusted) photo: read it on the device, then hand it over. */
+  const acceptReviewed = useCallback(
+    async (finalB64: string) => {
+      let base64 = finalB64;
+      let lines: string[] = [];
+      let ocrError: string | undefined;
+      if (autoScan) {
+        try {
+          const best = await recognizeBest(base64, 2400);
+          lines = best.lines.map((x) => x.text);
+          if (best.rotation) base64 = await rotateJpeg(base64, best.rotation);
+        } catch (e) {
+          // Reading failed: the photo is still saved; details can be typed in.
+          ocrError = (e as Error)?.message || t('Text recognition failed');
+        }
+      }
+      onCaptured({ base64, lines, barcode: barcodeRef.current, ocrError });
+    },
+    [autoScan, onCaptured, t],
+  );
+
+  const retake = useCallback(() => {
+    setReview(null);
+    barcodeRef.current = undefined;
+    capturingRef.current = false;
+    setRound((r) => r + 1); // restart automatic capture
+  }, []);
 
   // Auto-capture loop.
   useEffect(() => {
-    if (!cameraReady || camAccess.access !== 'granted' || !autoCapture) return;
+    if (!cameraReady || camAccess.access !== 'granted' || !autoScan || review) return;
     let cancelled = false;
     let previous: string[] | null = null;
     const started = Date.now();
@@ -201,7 +233,7 @@ export function GuidedCamera({
     return () => {
       cancelled = true;
     };
-  }, [cameraReady, camAccess.access, autoCapture, docType.kind, sideIndex, captureFull]);
+  }, [cameraReady, camAccess.access, autoScan, docType.kind, sideIndex, captureFull, review, round]);
 
   const onBarcode = useCallback(
     (e: BarcodeScanningResult) => {
@@ -209,9 +241,9 @@ export function GuidedCamera({
       if (docType.kind === 'boarding' ? !parseBcbp(e.data) : (e.data ?? '').trim().length < 4) return;
       barcodeRef.current = e.data.trim();
       setHint(docType.kind === 'boarding' ? 'Boarding pass barcode read' : 'Barcode read');
-      if (autoCapture) captureFull();
+      if (autoScan) captureFull();
     },
-    [autoCapture, captureFull, docType.kind],
+    [autoScan, captureFull, docType.kind],
   );
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -225,7 +257,7 @@ export function GuidedCamera({
         <Ionicons name="camera-reverse-outline" size={48} color={colors.warning} />
         <Text style={[type.h2, { marginTop: spacing.lg, textAlign: 'center' }]}>{t('Camera not available')}</Text>
         <Text style={[type.bodySecondary, { textAlign: 'center', marginVertical: spacing.md }]}>
-          {`${cameraError} ${t('Another app may be using it. You can import a photo or file instead.')}`}
+          {t('The camera could not be started. Another app may be using it. You can import a photo or file instead.')}
         </Text>
         {onImport ? <Button title={t('Import a photo or file')} icon="images-outline" onPress={onImport} style={{ alignSelf: 'stretch' }} /> : null}
         <Button title={t('Close')} variant="ghost" onPress={onClose} style={{ alignSelf: 'stretch', marginTop: spacing.sm }} />
@@ -246,13 +278,27 @@ export function GuidedCamera({
     );
   }
 
+  if (review) {
+    return (
+      <PageEditor
+        base64={review.b64}
+        width={review.w}
+        height={review.h}
+        initialQuad={review.quad}
+        enhanceByDefault={!isPhoto}
+        onAccept={acceptReviewed}
+        onRetake={retake}
+      />
+    );
+  }
+
   const cornerColor = found ? colors.primaryBright : '#FFFFFF';
   return (
     <View style={styles.root} onLayout={onLayout}>
       <CameraView
         ref={cam}
         style={StyleSheet.absoluteFill}
-        facing="back"
+        facing={facing}
         enableTorch={torch}
         flash={torch ? 'off' : flash}
         animateShutter={false}
@@ -306,15 +352,15 @@ export function GuidedCamera({
             </View>
             {ocrProblem ? (
               <Text style={[type.caption, { color: colors.warning, marginTop: spacing.sm, textAlign: 'center' }]}>
-                {t('Automatic reading is not working on this phone ({problem}). Tap the shutter to capture.', { problem: ocrProblem })}
+                {t('Automatic reading is not working on this phone. Tap the shutter to capture.')}
               </Text>
             ) : !autoCapture ? (
               <Text style={[type.caption, { color: '#ccd', marginTop: spacing.sm, textAlign: 'center' }]}>
-                Automatic capture is not available in this build. Tap the shutter when the document is sharp.
+                {t('Automatic capture is not available in this build. Tap the shutter when the document is sharp.')}
               </Text>
             ) : slow ? (
               <Text style={[type.caption, { color: '#ccd', marginTop: spacing.sm, textAlign: 'center' }]}>
-                Having trouble? Improve the light, avoid glare, or tap the shutter to capture manually.
+                {t('Having trouble? Improve the light, avoid glare, or tap the shutter to capture manually.')}
               </Text>
             ) : null}
           </View>
@@ -343,6 +389,14 @@ export function GuidedCamera({
               <Ionicons name="phone-landscape-outline" size={21} color="#fff" style={{ transform: [{ rotate: portrait ? '90deg' : '0deg' }] }} />
             </Pressable>
           ) : null}
+          <Pressable
+            onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
+            style={[styles.roundBtn, { marginEnd: 8 }]}
+            accessibilityRole="button"
+            accessibilityLabel={facing === 'back' ? t('Use the front camera') : t('Use the back camera')}
+          >
+            <Ionicons name="camera-reverse-outline" size={22} color="#fff" />
+          </Pressable>
           <Pressable onPress={() => setTorch((on) => !on)} style={styles.roundBtn} accessibilityRole="button" accessibilityLabel={t('Toggle flashlight')}>
             <Ionicons name={torch ? 'flash' : 'flash-off'} size={22} color="#fff" />
           </Pressable>

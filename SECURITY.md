@@ -4,7 +4,7 @@
 
 **Protects against:**
 - Someone who picks up an unlocked phone after Docsave has locked.
-- Someone with the phone who does not know the PIN, or who cannot pass biometrics in two-factor mode.
+- Someone with the phone who does not know the PIN and cannot pass the face or fingerprint check.
 - Extraction of app files through backups, iCloud / Google Drive, adb backup, device-to-device migration, or a computer backup.
 - Offline tampering with or swapping of vault files.
 - Leakage through the app switcher, screenshots, screen recording, notifications, thumbnails, keyboard learning or temporary files.
@@ -38,7 +38,7 @@
 | Two-factor | `ds.key.pinbio` = scrypt-wrapped K **behind** a biometric gate; nothing else. Both factors are needed. |
 
 - Every item uses `…_THIS_DEVICE_ONLY` accessibility, so it is never synced to iCloud Keychain or restored on another device.
-- Biometric items are invalidated by the OS when enrolled biometrics change. In two-factor mode that makes the vault permanently inaccessible, and users are warned before enabling it.
+- Biometric items are invalidated by the OS when enrolled biometrics change; the PIN still opens the vault and face or fingerprint can be enabled again. (Two-factor unlock was withdrawn; legacy two-factor vaults are migrated at their next unlock.)
 - scrypt parameters are N=2¹⁵, r=8, p=1 (32 MiB). They are stored with the wrapped key so they can be raised later. Lower parameters are rejected (no downgrade).
 - No key is hardcoded. The only constants are domain-separation labels.
 

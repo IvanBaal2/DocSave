@@ -28,7 +28,7 @@ export default function Dashboard() {
   );
   const mode = vault.meta?.unlockMode ?? 'pin';
   const compromised = vault.integrity.compromised;
-  const unlockLabel = mode === 'pin' ? 'PIN' : mode === 'pin_and_bio' ? `${t(vault.biometrics.label)} + PIN` : t(vault.biometrics.label);
+  const unlockLabel = mode === 'pin' ? 'PIN' : t(vault.biometrics.label);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, direction }} edges={['top']}>
@@ -96,6 +96,31 @@ export default function Dashboard() {
             <Ionicons name="scan" size={26} color="#03140D" />
           </Pressable>
         </FadeIn>
+
+        {/* Import existing files: one button per source */}
+        <View style={styles.importRow}>
+          <Pressable
+            onPress={() => router.push({ pathname: '/import', params: { source: 'files' } })}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.importBtn, pressed && { backgroundColor: colors.surfacePressed }]}
+          >
+            <Ionicons name="folder-open-outline" size={20} color={colors.primaryBright} />
+            <Text style={[type.h3, { marginStart: spacing.sm, fontSize: 14 }]} numberOfLines={1}>
+              {t('Import files')}
+            </Text>
+          </Pressable>
+          <View style={{ width: spacing.sm }} />
+          <Pressable
+            onPress={() => router.push({ pathname: '/import', params: { source: 'photos' } })}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.importBtn, pressed && { backgroundColor: colors.surfacePressed }]}
+          >
+            <Ionicons name="images-outline" size={20} color={colors.primaryBright} />
+            <Text style={[type.h3, { marginStart: spacing.sm, fontSize: 14 }]} numberOfLines={1}>
+              {t('Import photos')}
+            </Text>
+          </Pressable>
+        </View>
 
         {expiring.length ? (
           <Pressable
@@ -254,6 +279,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  importRow: { flexDirection: 'row', marginTop: spacing.md },
+  importBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   alert: {
     flexDirection: 'row',

@@ -41,7 +41,7 @@ module.exports = {
     version: '1.1.0',
     scheme: 'docsave',
     orientation: 'portrait',
-    userInterfaceStyle: 'dark',
+    userInterfaceStyle: 'automatic',
     backgroundColor: '#05080F',
     icon: './assets/icon.png',
     ios: {

@@ -35,7 +35,7 @@ export function CheckRow({ checked, onChange, label }: { checked: boolean; onCha
           backgroundColor: checked ? colors.primary : 'transparent',
           alignItems: 'center',
           justifyContent: 'center',
-          marginRight: spacing.md,
+          marginEnd: spacing.md,
         }}
       >
         {checked ? <Ionicons name="checkmark" size={17} color="#03140D" /> : null}

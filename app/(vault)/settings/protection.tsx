@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-
 import React from 'react';
 import { Text, View } from 'react-native';
-import { Card, FadeIn, Header, Screen, type IconName } from '../../../src/components/ui';
+import { Card, Header, Screen, SectionTitle, type IconName } from '../../../src/components/ui';
+import { useI18n } from '../../../src/i18n';
 import { colors, spacing, type } from '../../../src/theme/theme';
-
+import { autoLockLabel } from '../../../src/utils/format';
+import { useVault } from '../../../src/vault/VaultContext';
 
 const POINTS: { icon: IconName; title: string; body: string }[] = [
   {
@@ -29,35 +30,84 @@ const POINTS: { icon: IconName; title: string; body: string }[] = [
   },
 ];
 
+/** Security status at a glance, then how the protection works. */
 export default function Protection() {
+  const { t } = useI18n();
+  const vault = useVault();
+  const { settings, integrity, biometrics } = vault;
+  const mode = vault.meta?.unlockMode ?? 'pin';
+
+  const status: { ok: boolean; label: string; value: string }[] = [
+    { ok: true, label: t('Encryption'), value: 'AES-256-GCM' },
+    {
+      ok: true,
+      label: t('Unlock'),
+      value:
+        mode === 'pin'
+          ? t('PIN only')
+          : mode === 'pin_and_bio'
+            ? t('Two-factor')
+            : biometrics.face
+              ? t('Face, fingerprint, PIN')
+              : t('Fingerprint, PIN'),
+    },
+    { ok: settings.autoLockSeconds <= 60, label: t('Automatic lock'), value: autoLockLabel(settings.autoLockSeconds) },
+    { ok: settings.hideSensitivePreviews, label: t('Screen privacy'), value: settings.hideSensitivePreviews ? t('On') : t('Off') },
+    {
+      ok: !integrity.compromised,
+      label: t('Device check'),
+      value: integrity.compromised ? t('Signs of root / jailbreak detected') : t('No compromise detected'),
+    },
+  ];
 
   return (
     <Screen>
-      <Header title="How Docsave protects you" />
-      <Text style={[type.bodySecondary, { marginBottom: spacing.lg }]}>
-        Docsave works like a safe that only exists on this phone.
-      </Text>
-      {POINTS.map((p, i) => (
-        <FadeIn key={p.title} delay={i * 90}>
-          <Card style={{ flexDirection: 'row', marginBottom: spacing.md }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 12,
-                backgroundColor: colors.primarySoft,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name={p.icon} size={20} color={colors.primaryBright} />
-            </View>
-            <View style={{ flex: 1, marginLeft: spacing.lg }}>
-              <Text style={type.h3}>{p.title}</Text>
-              <Text style={[type.bodySecondary, { marginTop: 4 }]}>{p.body}</Text>
-            </View>
-          </Card>
-        </FadeIn>
+      <Header title={t('Security status')} />
+      <Card>
+        {status.map((s, i) => (
+          <View
+            key={s.label}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 10,
+              borderBottomWidth: i < status.length - 1 ? 1 : 0,
+              borderBottomColor: colors.border,
+            }}
+            accessible
+            accessibilityLabel={`${s.label}: ${s.value}`}
+          >
+            <Ionicons
+              name={s.ok ? 'checkmark-circle' : 'alert-circle'}
+              size={20}
+              color={s.ok ? colors.primaryBright : colors.warning}
+            />
+            <Text style={[type.bodySecondary, { flex: 1, marginStart: spacing.md }]}>{s.label}</Text>
+            <Text style={[type.body, { fontSize: 14, maxWidth: '55%' }]}>{s.value}</Text>
+          </View>
+        ))}
+      </Card>
+
+      <SectionTitle>{t('How Docsave protects you')}</SectionTitle>
+      {POINTS.map((p) => (
+        <Card key={p.title} style={{ flexDirection: 'row', marginBottom: spacing.md }}>
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: colors.primarySoft,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name={p.icon} size={20} color={colors.primaryBright} />
+          </View>
+          <View style={{ flex: 1, marginStart: spacing.lg }}>
+            <Text style={type.h3}>{t(p.title)}</Text>
+            <Text style={[type.bodySecondary, { marginTop: 4 }]}>{t(p.body)}</Text>
+          </View>
+        </Card>
       ))}
     </Screen>
   );

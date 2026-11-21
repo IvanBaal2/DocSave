@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
+import { t } from '../i18n';
 import { NativeSecurity, checkIntegrity, type IntegrityReport } from '../../modules/docsave-security';
 import { TamperError, setPbkdf2Provider, setRandomSource, wipe, type WrappedKey } from '../crypto/core';
 import { sniffMime } from '../security/importers';
@@ -36,8 +37,11 @@ export type UnlockResult =
 export type BiometricInfo = {
   available: boolean;
   enrolled: boolean;
-  label: string; // "Face ID", "Fingerprint", …
+  label: string; // "Face ID", "Fingerprint", … (English; translate with t() when shown)
   icon: 'scan-outline' | 'finger-print-outline';
+  /** The phone supports face recognition / fingerprint (enrolment is reported together in `enrolled`). */
+  face: boolean;
+  fingerprint: boolean;
 };
 
 type VaultContextValue = {
@@ -94,6 +98,7 @@ const VaultContext = createContext<VaultContextValue | null>(null);
 const IDLE_LOCK_MS = 5 * 60_000;
 const MAX_EXTERNAL_MS = 10 * 60_000;
 const AUTH_GRACE_MS = 60_000;
+const MAX_IN_APP_PIN_FAILURES = 5;
 
 export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<VaultStatus>('loading');
@@ -109,11 +114,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     enrolled: false,
     label: 'Biometrics',
     icon: 'finger-print-outline',
+    face: false,
+    fingerprint: false,
   });
 
   // Secret material lives only in refs, never in React state or props.
   const masterKey = useRef<Uint8Array | null>(null);
   const twoFactorWrapped = useRef<WrappedKey | null>(null);
+  const inAppPinFailures = useRef(0);
   const indexRef = useRef<VaultIndex>(index);
   const settingsRef = useRef<Settings>(settings);
   const metaRef = useRef<VaultMeta | null>(meta);
@@ -175,6 +183,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         enrolled,
         label: ios ? (face ? 'Face ID' : 'Touch ID') : face && finger ? 'Face or fingerprint' : face ? 'Face unlock' : 'Fingerprint',
         icon: face && (ios || !finger) ? 'scan-outline' : 'finger-print-outline',
+        face,
+        fingerprint: finger,
       });
     } catch {
       // Leave defaults (unavailable).
@@ -261,8 +271,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         ok: false,
         error:
           e instanceof TamperError
-            ? 'Vault integrity check failed. The vault files were modified or damaged.'
-            : 'The vault could not be opened.',
+            ? t('Vault integrity check failed. The vault files were modified or damaged.')
+            : t('The vault could not be opened.'),
       };
     }
     masterKey.current = key;
@@ -285,7 +295,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (checkIntegrity().compromised) {
       return {
         ok: false,
-        error: 'This device shows signs of being rooted or jailbroken. Your security settings block unlocking on such devices.',
+        error: t('This device shows signs of being rooted or jailbroken. Docsave does not unlock on such devices.'),
       };
     }
     return null;
@@ -315,14 +325,16 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       return {
         ok: false,
         destroyed: true,
-        error: `Too many incorrect PIN attempts. As configured, the vault has been permanently erased.`,
+        error: t('Too many incorrect PIN attempts. As configured, the vault has been permanently erased.'),
       };
     }
     const left = 5 - a.failed;
     const error =
       left > 0
-        ? `Incorrect PIN. ${left} ${left === 1 ? 'try' : 'tries'} left before a short wait.`
-        : 'Incorrect PIN. Please wait before trying again.';
+        ? left === 1
+          ? t('Incorrect PIN. 1 try left before a short wait.')
+          : t('Incorrect PIN. {count} tries left before a short wait.', { count: left })
+        : t('Incorrect PIN. Please wait before trying again.');
     return { ok: false, error, lockedUntil: a.lockedUntil };
   }
 
@@ -332,14 +344,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       if (blocked) return blocked;
       const a = await Keys.getAttempts();
       if (a.lockedUntil > Date.now()) {
-        return { ok: false, error: 'Too many attempts. Please wait.', lockedUntil: a.lockedUntil };
+        return { ok: false, error: t('Too many attempts. Please wait.'), lockedUntil: a.lockedUntil };
       }
       const mode = metaRef.current?.unlockMode ?? 'pin';
       try {
         let key: Uint8Array;
         if (mode === 'pin_and_bio') {
           const wrapped = twoFactorWrapped.current;
-          if (!wrapped) return { ok: false, error: `Verify with ${biometrics.label} first.` };
+          if (!wrapped) return { ok: false, error: t('Verify with {method} first.', { method: t(biometrics.label) }) };
           key = await Keys.unlockTwoFactor(wrapped, pin);
         } else {
           key = await Keys.unlockWithPin(pin);
@@ -347,7 +359,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         return await completeUnlock(key);
       } catch (e) {
         if (e instanceof TamperError) return handleWrongPin();
-        return { ok: false, error: (e as Error).message || 'Unlock failed.' };
+        return { ok: false, error: (e as Error).message || t('Unlock failed.') };
       }
     },
     [biometrics.label, integrity],
@@ -367,7 +379,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         setTwoFactorPending(true);
         return { ok: false, needPin: true, error: '' };
       }
-      return { ok: false, error: 'Biometric unlock is not enabled.' };
+      return { ok: false, error: t('Face or fingerprint unlock is not enabled.') };
     } catch (e) {
       if (e instanceof Keys.BiometricCancelledError) return { ok: false, error: '' };
       if (e instanceof Keys.BiometricKeyUnavailableError) {
@@ -379,7 +391,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
               : `${biometrics.label} is unavailable. Use your PIN.`,
         };
       }
-      return { ok: false, error: 'Biometric unlock failed.' };
+      return { ok: false, error: t('Face or fingerprint unlock failed.') };
     }
   }, [biometrics.label, integrity, runExternal]);
 
@@ -537,9 +549,17 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       twoFactorWrapped.current = await runExternal(() => Keys.fetchTwoFactorWrappedKey());
     }
     const ok = await Keys.verifyPin(pin, key, m.unlockMode, twoFactorWrapped.current);
-    if (ok) lastAuthAt.current = Date.now();
+    if (ok) {
+      lastAuthAt.current = Date.now();
+      inAppPinFailures.current = 0;
+    } else if (++inAppPinFailures.current >= MAX_IN_APP_PIN_FAILURES) {
+      // Repeated wrong PINs while unlocked (e.g. someone else holding the phone):
+      // close the vault so the lock screen's persistent attempt limits apply.
+      inAppPinFailures.current = 0;
+      lock();
+    }
     return ok;
-  }, [runExternal]);
+  }, [runExternal, lock]);
 
   const changePin = useCallback(async (currentPin: string, newPin: string) => {
     if (!(await verifyPin(currentPin))) return false;

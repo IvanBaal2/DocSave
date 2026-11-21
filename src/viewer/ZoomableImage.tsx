@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { t } from '../i18n';
 import { Animated, Image, PanResponder, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 
 const MAX_SCALE = 5;
@@ -113,7 +114,7 @@ export function ZoomableImage({
           fadeDuration={0}
           onError={onError}
           accessibilityIgnoresInvertColors
-          accessibilityLabel="Document image. Pinch or double-tap to zoom."
+          accessibilityLabel={t('Document image. Pinch or double-tap to zoom.')}
         />
       </Animated.View>
     </View>

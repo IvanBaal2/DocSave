@@ -21,6 +21,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { t, useI18n } from '../i18n';
 import { colors, gradients, radius, shadow, spacing, type } from '../theme/theme';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -46,8 +47,9 @@ export function Screen({
   contentStyle?: StyleProp<ViewStyle>;
   footer?: React.ReactNode;
 }) {
+  const { direction } = useI18n();
   return (
-    <SafeAreaView style={styles.screen} edges={edges}>
+    <SafeAreaView style={[styles.screen, { direction }]} edges={edges}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {scroll ? (
           <ScrollView
@@ -78,12 +80,13 @@ export function Header({
   right?: React.ReactNode;
 }) {
   const router = useRouter();
+  const i18n = useI18n();
   return (
     <View style={styles.header}>
       {back ? (
         <IconButton
-          icon="chevron-back"
-          accessibilityLabel="Go back"
+          icon={i18n.back}
+          accessibilityLabel={i18n.t('Go back')}
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
         />
       ) : (
@@ -165,7 +168,7 @@ export function Button({
         <ActivityIndicator color={fg} />
       ) : (
         <>
-          {icon ? <Ionicons name={icon} size={19} color={fg} style={{ marginRight: 8 }} /> : null}
+          {icon ? <Ionicons name={icon} size={19} color={fg} style={{ marginEnd: 8 }} /> : null}
           <Text style={[type.button, { color: fg }]}>{title}</Text>
         </>
       )}
@@ -265,7 +268,7 @@ export function Notice({
   return (
     <View style={[styles.notice, { backgroundColor: palette.bg, borderColor: palette.fg + '40' }]}>
       <Ionicons name={icon ?? palette.icon} size={20} color={palette.fg} style={{ marginTop: 1 }} />
-      <View style={{ flex: 1, marginLeft: spacing.md }}>
+      <View style={{ flex: 1, marginStart: spacing.md }}>
         {title ? <Text style={[type.h3, { color: palette.fg, marginBottom: 2 }]}>{title}</Text> : null}
         {isPlainText(children) ? <Text style={type.bodySecondary}>{children}</Text> : children}
       </View>
@@ -292,7 +295,7 @@ export function Chip({
       style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && { opacity: 0.8 }]}
     >
       {icon ? (
-        <Ionicons name={icon} size={15} color={selected ? colors.primaryBright : colors.textSecondary} style={{ marginRight: 6 }} />
+        <Ionicons name={icon} size={15} color={selected ? colors.primaryBright : colors.textSecondary} style={{ marginEnd: 6 }} />
       ) : null}
       <Text style={[type.bodySecondary, { fontSize: 13 }, selected && { color: colors.primaryBright, fontWeight: '600' }]}>
         {label}
@@ -339,6 +342,7 @@ export function SettingRow({
   disabled?: boolean;
 }) {
   const tint = danger ? colors.danger : colors.primaryBright;
+  const { forward } = useI18n();
   const body = (
     <View style={[styles.row, disabled && { opacity: 0.45 }]}>
       <View style={[styles.rowIcon, { backgroundColor: danger ? colors.dangerSoft : colors.primarySoft }]}>
@@ -363,8 +367,8 @@ export function SettingRow({
         />
       ) : (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {value ? <Text style={[type.bodySecondary, { marginRight: 6 }]}>{value}</Text> : null}
-          {onPress ? <Ionicons name="chevron-forward" size={18} color={colors.textMuted} /> : null}
+          {value ? <Text style={[type.bodySecondary, { marginEnd: 6 }]}>{value}</Text> : null}
+          {onPress ? <Ionicons name={forward} size={18} color={colors.textMuted} /> : null}
         </View>
       )}
     </View>
@@ -448,7 +452,7 @@ export function BrandLogo({ size = 240 }: { size?: number }) {
     <Image
       source={LOGO_FULL}
       accessibilityRole="image"
-      accessibilityLabel="Docsave — Your Documents. Your Device. Your Privacy."
+      accessibilityLabel={`Docsave. ${t('Your Documents. Your Device. Your Privacy.')}`}
       style={{ width: size, height: size }}
       resizeMode="contain"
     />
@@ -459,11 +463,11 @@ export function Logo({ size = 40, tagline = false }: { size?: number; tagline?: 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityLabel="Docsave">
       <LogoMark size={size} />
-      <View style={{ marginLeft: spacing.md }}>
+      <View style={{ marginStart: spacing.md }}>
         <Text style={[type.h1, { fontSize: size * 0.55 }]}>
           Doc<Text style={{ color: colors.primaryBright }}>save</Text>
         </Text>
-        {tagline ? <Text style={type.caption}>Your Documents. Your Device. Your Privacy.</Text> : null}
+        {tagline ? <Text style={type.caption}>{t('Your Documents. Your Device. Your Privacy.')}</Text> : null}
       </View>
     </View>
   );
@@ -471,29 +475,12 @@ export function Logo({ size = 40, tagline = false }: { size?: number; tagline?: 
 
 // ── Motion ───────────────────────────────────────────────────────────────────
 
-export function FadeIn({
-  children,
-  delay = 0,
-  style,
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  style?: StyleProp<ViewStyle>;
-}) {
-  const v = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(v, { toValue: 1, duration: 380, delay, useNativeDriver: true }).start();
-  }, [v, delay]);
-  return (
-    <Animated.View
-      style={[
-        style,
-        { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] },
-      ]}
-    >
-      {children}
-    </Animated.View>
-  );
+/**
+ * Formerly a staggered entrance animation. Content now appears immediately
+ * (faster perceived start-up); kept as a plain wrapper so layouts are unchanged.
+ */
+export function FadeIn({ children, style }: { children: React.ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
+  return <View style={style}>{children}</View>;
 }
 
 export function PulseShield({ size = 96, tone = 'ok' }: { size?: number; tone?: 'ok' | 'warn' }) {
@@ -556,7 +543,7 @@ export function EmptyState({ icon, title, body, action }: { icon: IconName; titl
 
 export function StepDots({ step, total }: { step: number; total: number }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityLabel={`Step ${step} of ${total}`}>
+    <View style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityLabel={t('Step {step} of {total}', { step, total })}>
       {Array.from({ length: total }, (_, i) => (
         <View
           key={i}
@@ -564,7 +551,7 @@ export function StepDots({ step, total }: { step: number; total: number }) {
             height: 4,
             width: i + 1 === step ? 22 : 8,
             borderRadius: 2,
-            marginRight: 5,
+            marginEnd: 5,
             backgroundColor: i + 1 <= step ? colors.primary : colors.borderStrong,
           }}
         />
@@ -641,7 +628,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    marginRight: spacing.sm,
+    marginEnd: spacing.sm,
     marginBottom: spacing.sm,
   },
   chipSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder },
@@ -652,7 +639,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
   },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginLeft: 64 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginStart: 64 },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 14, minHeight: 60 },
   rowIcon: {
     width: 36,

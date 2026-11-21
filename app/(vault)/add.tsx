@@ -6,12 +6,14 @@ import { FadeIn, Header, Screen, SectionTitle, type IconName } from '../../src/c
 import { colors, radius, spacing, type } from '../../src/theme/theme';
 import { BUILT_IN_CATEGORIES, ESSENTIAL_TYPES, findDocTypeAny, type CategoryDef, type DocTypeDef } from '../../src/vault/categories';
 import { useVault } from '../../src/vault/VaultContext';
+import { useI18n } from '../../src/i18n';
 
 /** Step 1 of adding a document: choose what it is. Scanning starts right after. */
 export default function ChooseDocumentType() {
   const router = useRouter();
   const { categoryId } = useLocalSearchParams<{ categoryId?: string }>();
   const { index } = useVault();
+  const { t: tr } = useI18n();
 
   // Custom folders have no predefined types: go straight to scanning.
   useEffect(() => {
@@ -44,40 +46,39 @@ export default function ChooseDocumentType() {
 
   return (
     <Screen>
-      <Header title="Add document" subtitle="Choose what you want to save" />
+      <Header title={tr('Add document')} subtitle={tr('Choose what you want to save')} />
       <View style={styles.banner}>
         <Ionicons name="scan" size={20} color={colors.primaryBright} />
-        <Text style={[type.bodySecondary, { flex: 1, marginLeft: spacing.md }]}>
-          Pick a type and the camera opens with the right guide. Docsave captures it automatically and reads the details
-          on this device.
+        <Text style={[type.bodySecondary, { flex: 1, marginStart: spacing.md }]}>
+          {tr('Pick a type and the camera opens with the right guide. Docsave captures it automatically and reads the details on this device.')}
         </Text>
       </View>
 
       {groups.map((cat, gi) => (
         <View key={cat.id}>
-          <SectionTitle>{cat.name}</SectionTitle>
+          <SectionTitle>{tr(cat.name)}</SectionTitle>
           <View style={styles.grid}>
             {cat.types.map((t, i) => (
               <FadeIn key={t.id} delay={gi * 60 + i * 30} style={styles.cell}>
                 <Pressable
                   onPress={() => open(t)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${t.label}. ${t.hint}`}
+                  accessibilityLabel={`${tr(t.label)}. ${tr(t.hint)}`}
                   style={({ pressed }) => [styles.card, pressed && { backgroundColor: colors.surfacePressed, transform: [{ scale: 0.98 }] }]}
                 >
                   <View style={[styles.icon, { backgroundColor: cat.color + '1F' }]}>
                     <Ionicons name={t.icon as IconName} size={24} color={cat.color} />
                   </View>
                   <Text style={[type.h3, { marginTop: spacing.md }]} numberOfLines={2}>
-                    {t.label}
+                    {tr(t.label)}
                   </Text>
                   <Text style={[type.caption, { marginTop: 4 }]} numberOfLines={2}>
-                    {t.hint}
+                    {tr(t.hint)}
                   </Text>
                   {t.slots.length > 1 ? (
                     <View style={styles.sides}>
                       <Ionicons name="swap-horizontal" size={11} color={colors.textSecondary} />
-                      <Text style={[type.caption, { marginLeft: 4, fontSize: 11 }]}>{t.slots.join(' + ')}</Text>
+                      <Text style={[type.caption, { marginStart: 4, fontSize: 11 }]}>{t.slots.map((s) => tr(s)).join(' + ')}</Text>
                     </View>
                   ) : null}
                 </Pressable>

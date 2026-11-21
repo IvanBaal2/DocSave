@@ -28,6 +28,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { b64 } from '../crypto/base64';
+import { t } from '../i18n';
 import {
   TamperError,
   generateMasterKey,
@@ -226,8 +227,8 @@ export async function unlockWithBiometrics(binding: BioBinding = 'hardware'): Pr
   let raw: string | null;
   if (binding === 'device-check') {
     const res = await LocalAuthentication.authenticateAsync({
-      promptMessage: BIO_PROMPT,
-      cancelLabel: 'Use PIN',
+      promptMessage: t(BIO_PROMPT),
+      cancelLabel: t('Use PIN'),
       disableDeviceFallback: true,
       biometricsSecurityLevel: 'weak',
     });
@@ -240,7 +241,7 @@ export async function unlockWithBiometrics(binding: BioBinding = 'hardware'): Pr
     raw = await SecureStore.getItemAsync(K.bioSoft, PLAIN);
   } else {
     try {
-      raw = await SecureStore.getItemAsync(K.bio, bioOptions(BIO_PROMPT));
+      raw = await SecureStore.getItemAsync(K.bio, bioOptions(t(BIO_PROMPT)));
     } catch (e) {
       mapBioError(e);
     }
@@ -255,7 +256,7 @@ export async function unlockWithBiometrics(binding: BioBinding = 'hardware'): Pr
 export async function fetchTwoFactorWrappedKey(): Promise<WrappedKey> {
   let wrapped: WrappedKey | null;
   try {
-    wrapped = await readWrapped(K.pinBio, bioOptions(BIO_PROMPT));
+    wrapped = await readWrapped(K.pinBio, bioOptions(t(BIO_PROMPT)));
   } catch (e) {
     mapBioError(e);
   }
@@ -309,7 +310,7 @@ async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode
       );
     }
     await SecureStore.deleteItemAsync(K.pin, PLAIN);
-    await safeDelete(K.bio, bioOptions(BIO_PROMPT));
+    await safeDelete(K.bio, bioOptions(t(BIO_PROMPT)));
     await safeDelete(K.bioSoft, PLAIN);
     return 'hardware';
   }
@@ -323,9 +324,9 @@ async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode
     if (previous) await SecureStore.setItemAsync(K.pin, previous, PLAIN);
     throw e;
   }
-  await safeDelete(K.pinBio, bioOptions(BIO_PROMPT));
+  await safeDelete(K.pinBio, bioOptions(t(BIO_PROMPT)));
   if (mode === 'pin') {
-    await safeDelete(K.bio, bioOptions(BIO_PROMPT));
+    await safeDelete(K.bio, bioOptions(t(BIO_PROMPT)));
     await safeDelete(K.bioSoft, PLAIN);
     return undefined;
   }
@@ -341,8 +342,8 @@ async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode
     // (face or fingerprint). Some phones report an "unknown" status yet show
     // the system prompt fine, so we simply try it.
     const check = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Confirm to enable face / fingerprint unlock',
-      cancelLabel: 'Cancel',
+      promptMessage: t('Confirm to enable face / fingerprint unlock'),
+      cancelLabel: t('Cancel'),
       disableDeviceFallback: true,
       biometricsSecurityLevel: 'weak',
     });
@@ -358,7 +359,7 @@ async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode
       throw new BiometricSetupError(reason);
     }
     await SecureStore.setItemAsync(K.bioSoft, b64.encode(masterKey), PLAIN);
-    await safeDelete(K.bio, bioOptions(BIO_PROMPT));
+    await safeDelete(K.bio, bioOptions(t(BIO_PROMPT)));
     return 'device-check';
   }
 }
@@ -426,6 +427,6 @@ async function safeDelete(key: string, opts: SecureStore.SecureStoreOptions): Pr
 export async function destroyAllKeys(): Promise<void> {
   for (const key of Object.values(K)) {
     await safeDelete(key, PLAIN);
-    await safeDelete(key, bioOptions(BIO_PROMPT));
+    await safeDelete(key, bioOptions(t(BIO_PROMPT)));
   }
 }

@@ -7,9 +7,12 @@ import { Button, Logo, haptic } from '../src/components/ui';
 import { colors, spacing, type } from '../src/theme/theme';
 import { MAX_ATTEMPTS_BEFORE_WIPE } from '../src/vault/keyManager';
 import { useVault } from '../src/vault/VaultContext';
+import { useI18n } from '../src/i18n';
 
 export default function LockScreen() {
   const vault = useVault();
+  const { t, direction } = useI18n();
+  const bioLabel = t(vault.biometrics.label);
   const mode = vault.meta?.unlockMode ?? 'pin';
   const pinLength = vault.meta?.pinLength ?? 6;
   const [pin, setPin] = useState('');
@@ -24,8 +27,8 @@ export default function LockScreen() {
 
   useEffect(() => {
     if (!lockedOut) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, [lockedOut]);
 
   const tryBiometrics = useCallback(async () => {
@@ -39,8 +42,8 @@ export default function LockScreen() {
   useEffect(() => {
     if (autoPrompted.current || mode === 'pin' || !vault.biometrics.enrolled || lockedOut) return;
     autoPrompted.current = true;
-    const t = setTimeout(tryBiometrics, 350);
-    return () => clearTimeout(t);
+    const timer = setTimeout(tryBiometrics, 350);
+    return () => clearTimeout(timer);
   }, [mode, vault.biometrics.enrolled, lockedOut, tryBiometrics]);
 
   async function submit(value: string) {
@@ -60,17 +63,19 @@ export default function LockScreen() {
 
   function forgotPin() {
     Alert.alert(
-      'Forgot your PIN?',
-      'Docsave has no recovery system. Without your PIN your documents cannot be decrypted by anyone.\n\nThe only option is to permanently destroy this vault and start again with an empty one.',
+      t('Forgot your PIN?'),
+      `${t('Docsave has no recovery system. Without your PIN your documents cannot be decrypted by anyone.')}
+
+${t('The only option is to permanently destroy this vault and start again with an empty one.')}`,
       [
-        { text: 'Keep trying', style: 'cancel' },
+        { text: t('Keep trying'), style: 'cancel' },
         {
-          text: 'Destroy vault…',
+          text: t('Destroy vault…'),
           style: 'destructive',
           onPress: () =>
-            Alert.alert('Permanently destroy vault?', 'All documents will be erased forever. This cannot be undone.', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Destroy everything', style: 'destructive', onPress: () => vault.destroyVault() },
+            Alert.alert(t('Permanently destroy vault?'), t('All documents will be erased forever. This cannot be undone.'), [
+              { text: t('Cancel'), style: 'cancel' },
+              { text: t('Destroy everything'), style: 'destructive', onPress: () => vault.destroyVault() },
             ]),
         },
       ],
@@ -82,38 +87,38 @@ export default function LockScreen() {
   const failed = vault.attempts.failed;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, direction }}>
       <View style={{ flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xl }}>
         <View style={{ alignItems: 'center', paddingHorizontal: spacing.xl }}>
           <Logo size={44} />
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xl }}>
             <Ionicons name="lock-closed" size={16} color={colors.primaryBright} />
-            <Text style={[type.h2, { marginLeft: 8 }]}>Vault locked</Text>
+            <Text style={[type.h2, { marginStart: 8 }]}>{t('Vault locked')}</Text>
           </View>
           <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.sm }]}>
             {needBiometricStep
-              ? `Step 1 of 2: verify with ${vault.biometrics.label}`
+              ? t('Step 1 of 2: verify with {method}', { method: bioLabel })
               : mode === 'pin_and_bio'
-                ? 'Step 2 of 2: enter your PIN'
-                : 'Enter your PIN to decrypt your documents'}
+                ? t('Step 2 of 2: enter your PIN')
+                : t('Enter your PIN to decrypt your documents')}
           </Text>
           <View style={{ minHeight: 44, marginTop: spacing.md, alignItems: 'center', justifyContent: 'center' }}>
             {busy ? (
               <>
                 <ActivityIndicator color={colors.primary} />
-                <Text style={[type.caption, { marginTop: 4 }]}>Verifying…</Text>
+                <Text style={[type.caption, { marginTop: 4 }]}>{t('Verifying…')}</Text>
               </>
             ) : lockedOut ? (
               <Text style={[type.caption, { color: colors.warning, textAlign: 'center' }]}>
-                Too many attempts. Try again in {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
+                {t('Too many attempts. Try again in {time}', { time: `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}` })}
               </Text>
             ) : message ? (
               <Text style={[type.caption, { color: colors.danger, textAlign: 'center' }]}>{message}</Text>
             ) : failed > 0 ? (
               <Text style={[type.caption, { textAlign: 'center' }]}>
-                {failed} failed attempt{failed === 1 ? '' : 's'}
+                {failed === 1 ? t('1 failed attempt') : t('{count} failed attempts', { count: failed })}
                 {vault.settings.wipeAfterFailedAttempts
-                  ? ` · vault erases after ${MAX_ATTEMPTS_BEFORE_WIPE}`
+                  ? ` · ${t('vault erases after {count}', { count: MAX_ATTEMPTS_BEFORE_WIPE })}`
                   : ''}
               </Text>
             ) : null}
@@ -125,7 +130,7 @@ export default function LockScreen() {
             <Pressable
               onPress={tryBiometrics}
               accessibilityRole="button"
-              accessibilityLabel={`Verify with ${vault.biometrics.label}`}
+              accessibilityLabel={t('Verify with {method}', { method: bioLabel })}
               style={({ pressed }) => ({
                 width: 120,
                 height: 120,
@@ -141,7 +146,7 @@ export default function LockScreen() {
               <Ionicons name={vault.biometrics.icon} size={54} color={colors.primaryBright} />
             </Pressable>
             <Button
-              title={`Verify with ${vault.biometrics.label}`}
+              title={t('Verify with {method}', { method: bioLabel })}
               onPress={tryBiometrics}
               style={{ alignSelf: 'stretch', marginTop: spacing.xxl }}
             />
@@ -156,14 +161,14 @@ export default function LockScreen() {
             errorSignal={shake}
             leftAction={
               mode === 'pin_or_bio' && vault.biometrics.enrolled
-                ? { icon: vault.biometrics.icon, label: `Unlock with ${vault.biometrics.label}`, onPress: tryBiometrics }
+                ? { icon: vault.biometrics.icon, label: t('Unlock with {method}', { method: bioLabel }), onPress: tryBiometrics }
                 : undefined
             }
           />
         )}
 
         <Pressable onPress={forgotPin} accessibilityRole="button" style={{ alignSelf: 'center', padding: spacing.md }}>
-          <Text style={[type.caption, { color: colors.textSecondary }]}>Forgot PIN?</Text>
+          <Text style={[type.caption, { color: colors.textSecondary }]}>{t('Forgot PIN?')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>

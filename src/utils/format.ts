@@ -1,3 +1,5 @@
+import { locale, t } from '../i18n';
+
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
@@ -17,7 +19,7 @@ export function parseIsoDate(iso?: string): Date | null {
 
 export function formatDate(iso?: string): string {
   const d = parseIsoDate(iso);
-  return d ? d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  return d ? d.toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 }
 
 export function daysUntil(iso?: string): number | null {
@@ -29,13 +31,15 @@ export function daysUntil(iso?: string): number | null {
 }
 
 export function formatTimestamp(ms: number): string {
-  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(ms).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function autoLockLabel(seconds: number): string {
-  if (seconds === 0) return 'Immediately';
-  if (seconds < 60) return `After ${seconds} seconds`;
-  return `After ${seconds / 60} minute${seconds === 60 ? '' : 's'}`;
+export function autoLockLabel(seconds: number, short = false): string {
+  if (seconds === 0) return t('Immediately');
+  if (seconds < 60) return short ? t('{n} seconds', { n: seconds }) : t('After {n} seconds', { n: seconds });
+  const n = seconds / 60;
+  if (n === 1) return short ? t('1 minute') : t('After 1 minute');
+  return short ? t('{n} minutes', { n }) : t('After {n} minutes', { n });
 }
 
 /** Document names without separator dashes (older names used "Type — Holder"). */

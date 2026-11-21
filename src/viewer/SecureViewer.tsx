@@ -7,6 +7,7 @@ import { b64 } from '../crypto/base64';
 import { fromUtf8 } from '../crypto/core';
 import { colors, spacing, type } from '../theme/theme';
 import { pdfHtml } from './viewerHtml';
+import { t } from '../i18n';
 import { ZoomableImage } from './ZoomableImage';
 
 export const VIEWABLE_TYPES = [
@@ -89,7 +90,7 @@ export function SecureViewer({ base64, mimeType, rotation = 0 }: { base64: strin
   if (mime.startsWith('image/')) {
     return (
       <View style={{ flex: 1 }}>
-        <ZoomableImage base64={base64} mimeType={mime} rotation={rotation} onError={() => setState({ loading: false, error: 'This image format cannot be displayed on this device.' })} />
+        <ZoomableImage base64={base64} mimeType={mime} rotation={rotation} onError={() => setState({ loading: false, error: t('This image format cannot be displayed on this device.') })} />
         {state.error ? (
           <View style={styles.errorBar}>
             <Text style={[type.caption, { color: colors.warning }]}>{state.error}</Text>
@@ -123,10 +124,9 @@ export function SecureViewer({ base64, mimeType, rotation = 0 }: { base64: strin
   if (!html) {
     return (
       <View style={styles.center}>
-        <Text style={[type.h3, { textAlign: 'center' }]}>Preview not available</Text>
+        <Text style={[type.h3, { textAlign: 'center' }]}>{t('Preview not available')}</Text>
         <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.sm }]}>
-          This file type ({mimeType}) is stored securely, but it cannot be displayed inside Docsave without
-          creating an unencrypted copy.
+          {t('This file type ({type}) is stored securely, but it cannot be displayed inside Docsave. Use Export to open it in another app.', { type: mimeType })}
         </Text>
       </View>
     );
@@ -151,12 +151,12 @@ export function SecureViewer({ base64, mimeType, rotation = 0 }: { base64: strin
         webviewDebuggingEnabled={false}
         style={{ backgroundColor: colors.bg }}
         containerStyle={{ backgroundColor: colors.bg }}
-        onError={() => setState({ loading: false, error: 'Viewer error' })}
+        onError={() => setState({ loading: false, error: t('Viewer error') })}
       />
       {state.loading ? (
         <View style={[StyleSheet.absoluteFill, styles.center, { backgroundColor: colors.bg }]} pointerEvents="none">
           <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={[type.caption, { marginTop: spacing.md }]}>Decrypting in memory…</Text>
+          <Text style={[type.caption, { marginTop: spacing.md }]}>{t('Decrypting in memory…')}</Text>
         </View>
       ) : null}
       {state.error ? (

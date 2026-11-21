@@ -10,6 +10,7 @@ import { deleteTempFile } from '../security/secureTemp';
 import { colors, spacing, type } from '../theme/theme';
 import type { DocTypeDef } from '../vault/categories';
 import { CameraPermissionScreen, useCameraAccess } from './CameraPermission';
+import { tLabel, useI18n } from '../i18n';
 import { Button, haptic } from './ui';
 
 export type CapturedSide = { base64: string; lines: string[]; barcode?: string; ocrError?: string };
@@ -62,6 +63,7 @@ export function GuidedCamera({
   onClose: () => void;
 }) {
   const camAccess = useCameraAccess();
+  const { t, direction } = useI18n();
   const cam = useRef<CameraView>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
@@ -141,13 +143,13 @@ export function GuidedCamera({
           // Text was found sideways / upside down: store the photo upright.
           if (best.rotation) base64 = await rotateJpeg(base64, best.rotation);
         } catch (e) {
-          ocrError = (e as Error)?.message || 'Text recognition failed';
+          ocrError = (e as Error)?.message || t('Text recognition failed');
         }
       }
       haptic.success();
       onCaptured({ base64, lines, barcode: barcodeRef.current, ocrError });
     } catch {
-      setHint('Capture failed — try again');
+      setHint('Capture failed, try again');
       capturingRef.current = false;
       setCapturing(false);
     }
@@ -175,7 +177,7 @@ export function GuidedCamera({
               lines = (await recognizeText(crop, 1600)).lines.map((x) => x.text);
               setOcrProblem(null);
             } catch (e) {
-              setOcrProblem((e as Error)?.message || 'Text recognition failed');
+              setOcrProblem((e as Error)?.message || t('Text recognition failed'));
               await sleep(1500);
               continue;
             }
@@ -219,14 +221,14 @@ export function GuidedCamera({
 
   if (cameraError) {
     return (
-      <SafeAreaView style={styles.center}>
+      <SafeAreaView style={[styles.center, { direction }]}>
         <Ionicons name="camera-reverse-outline" size={48} color={colors.warning} />
-        <Text style={[type.h2, { marginTop: spacing.lg, textAlign: 'center' }]}>Camera not available</Text>
+        <Text style={[type.h2, { marginTop: spacing.lg, textAlign: 'center' }]}>{t('Camera not available')}</Text>
         <Text style={[type.bodySecondary, { textAlign: 'center', marginVertical: spacing.md }]}>
-          {`${cameraError} Another app may be using it. You can import a photo or file instead.`}
+          {`${cameraError} ${t('Another app may be using it. You can import a photo or file instead.')}`}
         </Text>
-        {onImport ? <Button title="Import a photo or file" icon="images-outline" onPress={onImport} style={{ alignSelf: 'stretch' }} /> : null}
-        <Button title="Close" variant="ghost" onPress={onClose} style={{ alignSelf: 'stretch', marginTop: spacing.sm }} />
+        {onImport ? <Button title={t('Import a photo or file')} icon="images-outline" onPress={onImport} style={{ alignSelf: 'stretch' }} /> : null}
+        <Button title={t('Close')} variant="ghost" onPress={onClose} style={{ alignSelf: 'stretch', marginTop: spacing.sm }} />
       </SafeAreaView>
     );
   }
@@ -255,7 +257,7 @@ export function GuidedCamera({
         flash={torch ? 'off' : flash}
         animateShutter={false}
         pictureSize={pictureSize}
-        onMountError={(e) => setCameraError(e?.message || 'The camera could not be started.')}
+        onMountError={(e) => setCameraError(e?.message || t('The camera could not be started.'))}
         onCameraReady={async () => {
           try {
             const sizes = await cam.current?.getAvailablePictureSizesAsync();
@@ -300,11 +302,11 @@ export function GuidedCamera({
               {capturing ? <ActivityIndicator color={colors.primaryBright} size="small" /> : (
                 <Ionicons name={found ? 'scan' : 'scan-outline'} size={16} color={found ? colors.primaryBright : '#fff'} />
               )}
-              <Text style={[type.body, { color: '#fff', marginLeft: 8 }]}>{capturing ? 'Capturing and reading…' : hint}</Text>
+              <Text style={[type.body, { color: '#fff', marginStart: 8 }]}>{capturing ? t('Capturing and reading…') : t(hint)}</Text>
             </View>
             {ocrProblem ? (
               <Text style={[type.caption, { color: colors.warning, marginTop: spacing.sm, textAlign: 'center' }]}>
-                {`Automatic reading is not working on this phone (${ocrProblem}). Tap the shutter to capture.`}
+                {t('Automatic reading is not working on this phone ({problem}). Tap the shutter to capture.', { problem: ocrProblem })}
               </Text>
             ) : !autoCapture ? (
               <Text style={[type.caption, { color: '#ccd', marginTop: spacing.sm, textAlign: 'center' }]}>
@@ -320,13 +322,13 @@ export function GuidedCamera({
       ) : null}
 
       <SafeAreaView style={styles.topBar} edges={['top']}>
-        <Pressable onPress={onClose} style={styles.roundBtn} accessibilityRole="button" accessibilityLabel="Close camera">
+        <Pressable onPress={onClose} style={styles.roundBtn} accessibilityRole="button" accessibilityLabel={t('Close camera')}>
           <Ionicons name="close" size={24} color="#fff" />
         </Pressable>
         <View style={styles.stepPill}>
           <Ionicons name="lock-closed" size={12} color={colors.primaryBright} />
-          <Text style={[type.caption, { color: colors.text, marginLeft: 6 }]}>
-            {docType.label} · {stepLabel}
+          <Text style={[type.caption, { color: colors.text, marginStart: 6 }]}>
+            {t(docType.label)} · {tLabel(stepLabel)}
             {stepCount > 1 ? ` (${sideIndex + 1}/${stepCount})` : ''}
           </Text>
         </View>
@@ -334,14 +336,14 @@ export function GuidedCamera({
           {docType.frame === 'card' ? (
             <Pressable
               onPress={() => setPortrait((p) => !p)}
-              style={[styles.roundBtn, { marginRight: 8 }]}
+              style={[styles.roundBtn, { marginEnd: 8 }]}
               accessibilityRole="button"
-              accessibilityLabel={portrait ? 'Switch to landscape card' : 'Switch to portrait card'}
+              accessibilityLabel={portrait ? t('Switch to landscape card') : t('Switch to portrait card')}
             >
               <Ionicons name="phone-landscape-outline" size={21} color="#fff" style={{ transform: [{ rotate: portrait ? '90deg' : '0deg' }] }} />
             </Pressable>
           ) : null}
-          <Pressable onPress={() => setTorch((t) => !t)} style={styles.roundBtn} accessibilityRole="button" accessibilityLabel="Toggle flashlight">
+          <Pressable onPress={() => setTorch((on) => !on)} style={styles.roundBtn} accessibilityRole="button" accessibilityLabel={t('Toggle flashlight')}>
             <Ionicons name={torch ? 'flash' : 'flash-off'} size={22} color="#fff" />
           </Pressable>
         </View>
@@ -350,9 +352,9 @@ export function GuidedCamera({
       <SafeAreaView style={styles.bottomBar} edges={['bottom']}>
         <View style={styles.sideAction}>
           {onImport ? (
-            <Pressable onPress={onImport} accessibilityRole="button" accessibilityLabel="Import a file or photo" style={styles.smallBtn}>
+            <Pressable onPress={onImport} accessibilityRole="button" accessibilityLabel={t('Import a file or photo')} style={styles.smallBtn}>
               <Ionicons name="images-outline" size={22} color="#fff" />
-              <Text style={styles.smallLabel}>Import</Text>
+              <Text style={styles.smallLabel}>{t('Import')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -360,16 +362,16 @@ export function GuidedCamera({
           onPress={captureFull}
           disabled={!cameraReady || capturing}
           accessibilityRole="button"
-          accessibilityLabel="Capture now"
+          accessibilityLabel={t('Capture now')}
           style={({ pressed }) => [styles.shutter, pressed && { transform: [{ scale: 0.94 }] }]}
         >
           {capturing ? <ActivityIndicator color={colors.bg} /> : <View style={styles.shutterInner} />}
         </Pressable>
         <View style={styles.sideAction}>
           {optional && onSkip ? (
-            <Pressable onPress={onSkip} accessibilityRole="button" accessibilityLabel="Skip this side" style={styles.smallBtn}>
+            <Pressable onPress={onSkip} accessibilityRole="button" accessibilityLabel={t('Skip this side')} style={styles.smallBtn}>
               <Ionicons name="play-skip-forward-outline" size={22} color="#fff" />
-              <Text style={styles.smallLabel}>Skip</Text>
+              <Text style={styles.smallLabel}>{t('Skip')}</Text>
             </Pressable>
           ) : null}
         </View>

@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, type } from '../theme/theme';
 import { useVault } from '../vault/VaultContext';
 import { Button } from './ui';
+import { useI18n } from '../i18n';
 
 export type CameraAccess = 'checking' | 'granted' | 'ask' | 'denied' | 'blocked';
 
@@ -113,14 +114,15 @@ export function CameraPermissionScreen({
   onImport?: () => void;
   onCancel: () => void;
 }) {
+  const { t, direction } = useI18n();
   const blocked = access === 'blocked';
-  const heading = blocked ? 'Camera Access Required' : 'Allow camera access';
+  const heading = blocked ? t('Camera Access Required') : t('Allow camera access');
   const message = blocked
-    ? 'Docsave needs camera access to scan your documents. Camera permission is currently disabled. Please enable it in your device settings to continue.'
-    : 'Docsave needs camera access to scan your documents. Photos are read and encrypted on this device and never leave it.';
+    ? t('Docsave needs camera access to scan your documents. Camera permission is currently disabled. Please enable it in your device settings to continue.')
+    : t('Docsave needs camera access to scan your documents. Photos are read and encrypted on this device and never leave it.');
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={[styles.root, { direction }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.illustration} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <View style={styles.ring}>
@@ -139,8 +141,8 @@ export function CameraPermissionScreen({
         <Text style={[type.bodySecondary, styles.center, { marginTop: spacing.md }]}>{message}</Text>
 
         {blocked ? (
-          <View style={styles.steps} accessibilityLabel="In Settings, open Permissions, then Camera, and choose Allow.">
-            {['Tap Open Settings', 'Open Permissions → Camera', 'Choose “Allow”, then come back'].map((s, i) => (
+          <View style={styles.steps} accessibilityLabel={t('In Settings, open Permissions, then Camera, and choose Allow.')}>
+            {[t('Tap Open Settings'), t('Open Permissions → Camera'), t('Choose “Allow”, then come back')].map((s, i) => (
               <View key={s} style={styles.step}>
                 <View style={styles.stepNum}>
                   <Text style={styles.stepNumText}>{i + 1}</Text>
@@ -151,7 +153,7 @@ export function CameraPermissionScreen({
           </View>
         ) : access === 'denied' ? (
           <Text style={[type.caption, styles.center, { marginTop: spacing.md }]}>
-            Camera access was not allowed. You can allow it now, or import an existing file instead.
+            {t('Camera access was not allowed. You can allow it now, or import an existing file instead.')}
           </Text>
         ) : null}
       </ScrollView>
@@ -159,14 +161,14 @@ export function CameraPermissionScreen({
       <View style={styles.actions}>
         {blocked ? (
           <Button
-            title="Open Settings"
+            title={t('Open Settings')}
             icon="settings-outline"
             onPress={onOpenSettings}
-            accessibilityHint="Opens Docsave's page in your device settings"
+            accessibilityHint={t('Opens Docsave’s page in your device settings')}
           />
         ) : (
           <Button
-            title="Allow camera"
+            title={t('Allow camera')}
             icon="camera-outline"
             loading={requesting || access === 'checking'}
             onPress={onRequest}
@@ -174,14 +176,14 @@ export function CameraPermissionScreen({
         )}
         {onImport ? (
           <Button
-            title="Import a File Instead"
+            title={t('Import a File Instead')}
             variant="secondary"
             icon="folder-open-outline"
             onPress={onImport}
             style={{ marginTop: spacing.sm }}
           />
         ) : null}
-        <Button title="Cancel" variant="ghost" onPress={onCancel} style={{ marginTop: spacing.xs }} />
+        <Button title={t('Cancel')} variant="ghost" onPress={onCancel} style={{ marginTop: spacing.xs }} />
       </View>
     </SafeAreaView>
   );
@@ -229,7 +231,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    marginRight: spacing.md,
+    marginEnd: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primarySoft,

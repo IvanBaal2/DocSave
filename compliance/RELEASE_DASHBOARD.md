@@ -33,7 +33,7 @@ Status key: **DONE**: implemented and evidenced in this repository · **PARTIAL*
 | 21 | App Store checklist | **OWNER** | Needs Apple Developer enrolment, an iOS build and the export-compliance answer. |
 | 22 | EU Cyber Resilience Act assessment | **PARTIAL** | [GDPR_ASSESSMENT.md §9](GDPR_ASSESSMENT.md). Applicability depends on the owner's commercial status. |
 | 23 | Financial transparency | **DONE** | Free app: no purchases, subscriptions, ads or data sales. See [SUPPORT_AND_FINANCE.md](SUPPORT_AND_FINANCE.md). |
-| 24 | Automated tests | **DONE** | Jest: 114 tests passing (crypto, key management, extraction, privacy configuration, 27 screen smoke tests). See [../TESTING.md](../TESTING.md). |
+| 24 | Automated tests | **DONE** | Jest: 139 tests passing (crypto, key management, extraction, privacy configuration, translations in 7 languages, 36 screen tests). See [../TESTING.md](../TESTING.md). |
 | 25 | QA on physical devices | **PARTIAL** | Owner tested on one Huawei Android phone across several builds. No device matrix, no iPhone tests. See [QA_PLAN.md](QA_PLAN.md). |
 | 26 | Data flow, retention, threat model | **DONE** | [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) |
 

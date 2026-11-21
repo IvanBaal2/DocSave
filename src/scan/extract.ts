@@ -8,6 +8,7 @@
  * passed the ICAO check digits). Everything else is reported as "missing" so
  * the user can type it in; nothing is ever guessed or invented.
  */
+import { locale } from '../i18n';
 import type { DocField } from '../vault/types';
 
 export type ScanKind =
@@ -180,7 +181,7 @@ export function allDates(lines: string[]): string[] {
 
 export function formatIsoDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(y, m - 1, d).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 // ── Machine Readable Zone (ICAO 9303) ────────────────────────────────────────

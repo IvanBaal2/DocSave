@@ -4,36 +4,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, type } from '../theme/theme';
 import { useVault } from '../vault/VaultContext';
 import { Button, Notice, PulseShield } from './ui';
+import { useI18n } from '../i18n';
 
 export function IntegrityWarning() {
-  const { integrity, acknowledgeIntegrity, settings } = useVault();
+  const { integrity, acknowledgeIntegrity } = useVault();
+  const { t, direction } = useI18n();
   return (
     <View style={styles.overlay}>
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, direction }}>
         <ScrollView contentContainerStyle={{ padding: spacing.xl, alignItems: 'center' }}>
           <PulseShield tone="warn" size={84} />
-          <Text style={[type.h1, { textAlign: 'center', marginTop: spacing.lg }]}>Device security warning</Text>
+          <Text style={[type.h1, { textAlign: 'center', marginTop: spacing.lg }]}>{t('Device security warning')}</Text>
           <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.md }]}>
-            Docsave detected signs that this device may be rooted, jailbroken or running instrumentation tools.
+            {t('Docsave detected signs that this device may be rooted, jailbroken or running instrumentation tools.')}
           </Text>
           <View style={{ alignSelf: 'stretch', marginTop: spacing.xl }}>
-            <Notice tone="warning" title="What this means">
-              On a compromised device, other apps or malware may be able to bypass the operating system's
-              protections, read the app's memory while a document is open, or capture your PIN. No mobile app can
-              guarantee protection on a compromised device.
+            <Notice tone="warning" title={t('What this means')}>
+              {t('On a compromised device, other apps or malware may be able to bypass the operating system’s protections, read the app’s memory while a document is open, or capture your PIN. No mobile app can guarantee protection on a compromised device.')}
             </Notice>
-            <Notice tone="info" title="Detected indicators">
+            <Notice tone="info" title={t('Detected indicators')}>
               <Text style={type.caption}>{integrity.reasons.join('\n') || 'unspecified'}</Text>
             </Notice>
             {integrity.compromised ? (
-              <Notice tone="danger" title="Unlocking is blocked">
-                Your security settings prevent the vault from being unlocked on this device.
+              <Notice tone="danger" title={t('Unlocking is blocked')}>
+                {t('Docsave does not unlock on this device.')}
               </Notice>
             ) : null}
           </View>
         </ScrollView>
         <View style={{ padding: spacing.xl }}>
-          <Button title="I understand the risks" variant="secondary" onPress={acknowledgeIntegrity} />
+          <Button title={t('I understand the risks')} variant="secondary" onPress={acknowledgeIntegrity} />
         </View>
       </SafeAreaView>
     </View>

@@ -13,6 +13,7 @@ import { colors, radius, spacing, type } from '../../src/theme/theme';
 import { GENERIC_TYPE, findCategory, findDocTypeAny } from '../../src/vault/categories';
 import type { DocField, PendingPage } from '../../src/vault/types';
 import { useVault } from '../../src/vault/VaultContext';
+import { tLabel, useI18n } from '../../src/i18n';
 import { formatBytes } from '../../src/utils/format';
 
 type Page = PendingPage & { lines: string[]; barcode?: string; ocrError?: string };
@@ -22,6 +23,7 @@ export default function ScanDocument() {
   const params = useLocalSearchParams<{ type?: string; categoryId?: string }>();
   const router = useRouter();
   const vault = useVault();
+  const { t } = useI18n();
 
   const found = findDocTypeAny(params.type);
   const docType = found?.type ?? GENERIC_TYPE;
@@ -107,8 +109,8 @@ export default function ScanDocument() {
     });
     setExtraction(ex);
     setFields(merged);
-    if (!name || (!isCustom && name === suggestName(docType.label, extraction?.holder))) {
-      setName(isCustom ? '' : suggestName(docType.label, ex.holder));
+    if (!name || (!isCustom && name === suggestName(t(docType.label), extraction?.holder))) {
+      setName(isCustom ? '' : suggestName(t(docType.label), ex.holder));
     }
     if (ex.keyDate && !keyDate) setKeyDate(ex.keyDate);
     if (!ex.keyDate) {
@@ -121,10 +123,10 @@ export default function ScanDocument() {
   async function importInstead(label = cameraLabel) {
     const choose = () =>
       new Promise<'photos' | 'files' | null>((resolve) =>
-        Alert.alert('Import', 'Where is the document?', [
-          { text: 'Photo library', onPress: () => resolve('photos') },
-          { text: 'Files (PDF, images…)', onPress: () => resolve('files') },
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+        Alert.alert(t('Import'), t('Where is the document?'), [
+          { text: t('Photo library'), onPress: () => resolve('photos') },
+          { text: t('Files (PDF, images…)'), onPress: () => resolve('files') },
+          { text: t('Cancel'), style: 'cancel', onPress: () => resolve(null) },
         ]),
       );
     const source = docType.importFirst ? 'files' : await choose();
@@ -148,7 +150,7 @@ export default function ScanDocument() {
           lines = best.lines.map((l) => l.text);
           if (best.rotation) picked.base64 = await rotateJpeg(picked.base64, best.rotation);
         } catch (e) {
-          ocrError = (e as Error)?.message || 'Text recognition failed';
+          ocrError = (e as Error)?.message || t('Text recognition failed');
         }
       }
       const list = sortPages([...pages.filter((p) => p.label !== label), { ...picked, lines, ocrError }]);
@@ -156,7 +158,7 @@ export default function ScanDocument() {
       if (extraction) runExtraction(list);
       else afterAdd(list);
     } catch (e) {
-      setError(e instanceof ImportError ? e.message : 'The file could not be imported.');
+      setError(e instanceof ImportError ? t(e.message) : t('The file could not be imported.'));
       setPhase(pages.length ? 'review' : 'camera');
     }
   }
@@ -169,13 +171,13 @@ export default function ScanDocument() {
 
   const keyDateLabel = categoryId === 'travel' ? 'travel' : 'expires';
   const description = useMemo(
-    () => describeDocument(isCustom && name ? name : docType.label, fields, keyDateLabel === 'travel' ? 'on' : 'expires'),
-    [fields, docType.label, isCustom, name, keyDateLabel],
+    () => describeDocument(isCustom && name ? name : t(docType.label), fields, keyDateLabel === 'travel' ? t('on') : t('expires')),
+    [fields, docType.label, isCustom, name, keyDateLabel, t],
   );
 
   async function save() {
-    if (!name.trim()) return setError('Give this document a name.');
-    if (!pages.length) return setError('Capture or import at least one page.');
+    if (!name.trim()) return setError(t('Give this document a name.'));
+    if (!pages.length) return setError(t('Capture or import at least one page.'));
     setPhase('saving');
     setError(null);
     try {
@@ -197,7 +199,7 @@ export default function ScanDocument() {
       void doc;
     } catch (e) {
       setPhase('review');
-      Alert.alert('Could not save', (e as Error).message || 'Encryption or storage failed.');
+      Alert.alert(t('Could not save'), (e as Error).message || t('Encryption or storage failed.'));
     }
   }
 
@@ -239,12 +241,12 @@ export default function ScanDocument() {
         </Animated.View>
         <Ionicons name="checkmark-circle" size={28} color={colors.primaryBright} style={{ marginTop: spacing.xl }} />
         <Text style={[type.h1, { marginTop: spacing.md, textAlign: 'center' }]}>
-          {pages[pages.length - 1]?.label} captured
+          {t('{side} captured', { side: tLabel(pages[pages.length - 1]?.label ?? '') })}
         </Text>
         <Text style={[type.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
-          Now turn the card over to scan the {cameraLabel.toLowerCase()}.
+          {t('Now turn the card over to scan the other side.')}
         </Text>
-        <Button title="Continue" onPress={() => setPhase('camera')} style={{ marginTop: spacing.xxl, alignSelf: 'stretch' }} />
+        <Button title={t('Continue')} onPress={() => setPhase('camera')} style={{ marginTop: spacing.xxl, alignSelf: 'stretch' }} />
       </View>
     );
   }
@@ -253,9 +255,9 @@ export default function ScanDocument() {
     return (
       <View style={styles.flip}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[type.h2, { marginTop: spacing.lg }]}>{phase === 'saving' ? 'Encrypting and saving…' : 'Reading on this device…'}</Text>
+        <Text style={[type.h2, { marginTop: spacing.lg }]}>{phase === 'saving' ? t('Encrypting and saving…') : t('Reading on this device…')}</Text>
         <Text style={[type.caption, { marginTop: spacing.sm, textAlign: 'center' }]}>
-          {phase === 'saving' ? 'AES-256-GCM · nothing leaves your phone' : 'On-device recognition · no internet used'}
+          {phase === 'saving' ? t('AES-256-GCM · nothing leaves your phone') : t('On-device recognition · no internet used')}
         </Text>
       </View>
     );
@@ -269,27 +271,29 @@ export default function ScanDocument() {
 
   return (
     <Screen
-      footer={<Button title="Encrypt & save" icon="lock-closed" onPress={save} />}
+      footer={<Button title={t('Encrypt & save')} icon="lock-closed" onPress={save} />}
     >
-      <Header title={`Review ${docType.label.toLowerCase()}`} subtitle={category?.name} />
+      <Header title={t(docType.label)} subtitle={t('Check and save')} />
 
       {extraction?.source === 'mrz' || extraction?.source === 'barcode' ? (
-        <Notice tone="success" title={extraction.verified ? 'Read and verified' : 'Read automatically'}>
+        <Notice tone="success" title={extraction.verified ? t('Read and verified') : t('Read automatically')}>
           {extraction.source === 'mrz'
-            ? 'Details were read from the machine-readable zone' + (extraction.verified ? ' and all check digits are valid.' : '. Please check them.')
-            : 'Details were read from the boarding-pass barcode.'}
+            ? extraction.verified
+              ? t('Details were read from the machine-readable zone and all check digits are valid.')
+              : t('Details were read from the machine-readable zone. Please check them.')
+            : t('Details were read from the boarding-pass barcode.')}
         </Notice>
       ) : recognised > 0 ? (
-        <Notice tone="info" title={`${recognised} detail${recognised === 1 ? '' : 's'} read automatically`}>
-          Please check them before saving.
+        <Notice tone="info" title={recognised === 1 ? t('1 detail read automatically') : t('{count} details read automatically', { count: recognised })}>
+          {t('Please check them before saving.')}
         </Notice>
       ) : pages.find((p) => p.ocrError) ? (
         <Text style={[type.caption, { color: colors.warning }]}>
-          {`Automatic reading failed: ${pages.find((p) => p.ocrError)?.ocrError}`}
+          {`${t('Automatic reading failed:')} ${pages.find((p) => p.ocrError)?.ocrError}`}
         </Text>
       ) : null}
 
-      <SectionTitle>Captured</SectionTitle>
+      <SectionTitle>{t('Captured')}</SectionTitle>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {pages.map((p) => (
           <View key={p.label} style={styles.thumbWrap}>
@@ -298,7 +302,7 @@ export default function ScanDocument() {
             ) : (
               <View style={[styles.thumb, { alignItems: 'center', justifyContent: 'center' }]}>
                 <Ionicons name="document-attach-outline" size={32} color={colors.primaryBright} />
-                <Text style={[type.caption, { marginTop: 4 }]}>{p.size ? formatBytes(p.size) : 'File'}</Text>
+                <Text style={[type.caption, { marginTop: 4 }]}>{p.size ? formatBytes(p.size) : t('File')}</Text>
               </View>
             )}
             <Text style={[type.caption, { marginTop: 6, color: colors.text }]}>{p.label}</Text>
@@ -308,9 +312,9 @@ export default function ScanDocument() {
                 setPhase('camera');
               }}
               accessibilityRole="button"
-              accessibilityLabel={`Retake ${p.label}`}
+              accessibilityLabel={`${t('Retake')} ${tLabel(p.label)}`}
             >
-              <Text style={[type.caption, { color: colors.primaryBright, marginTop: 2 }]}>Retake</Text>
+              <Text style={[type.caption, { color: colors.primaryBright, marginTop: 2 }]}>{t('Retake')}</Text>
             </Pressable>
           </View>
         ))}
@@ -329,7 +333,7 @@ export default function ScanDocument() {
               <View style={[styles.thumb, styles.addThumb]}>
                 <Ionicons name="add" size={28} color={colors.primaryBright} />
               </View>
-              <Text style={[type.caption, { marginTop: 6 }]}>Add {s.toLowerCase()}</Text>
+              <Text style={[type.caption, { marginTop: 6 }]}>{t('Add {side}', { side: tLabel(s) })}</Text>
             </Pressable>
           ))}
         {docType.multiPage ? (
@@ -344,30 +348,30 @@ export default function ScanDocument() {
             <View style={[styles.thumb, styles.addThumb]}>
               <Ionicons name="add" size={28} color={colors.primaryBright} />
             </View>
-            <Text style={[type.caption, { marginTop: 6 }]}>Add page</Text>
+            <Text style={[type.caption, { marginTop: 6 }]}>{t('Add page')}</Text>
           </Pressable>
         ) : null}
       </ScrollView>
       <Pressable onPress={() => importInstead(pages.length ? nextExtra : docType.slots[0])} accessibilityRole="button">
-        <Text style={[type.caption, { color: colors.primaryBright, marginTop: spacing.sm }]}>Import a file or photo instead…</Text>
+        <Text style={[type.caption, { color: colors.primaryBright, marginTop: spacing.sm }]}>{t('Import a file or photo instead…')}</Text>
       </Pressable>
 
-      <SectionTitle>Document</SectionTitle>
+      <SectionTitle>{t('Document')}</SectionTitle>
       <TextField
-        label={isCustom ? 'Name your document' : 'Name'}
+        label={isCustom ? t('Name your document') : t('Name')}
         value={name}
         onChangeText={setName}
-        placeholder={isCustom ? 'e.g. Car insurance' : docType.label}
+        placeholder={isCustom ? t('e.g. Car insurance') : t(docType.label)}
         maxLength={80}
       />
       <ExpiryField
-        label={categoryId === 'travel' ? 'Travel date (for reminders)' : 'Expiry date (for reminders)'}
+        label={categoryId === 'travel' ? t('Travel date (for reminders)') : t('Expiry date (for reminders)')}
         value={keyDate}
         onChange={setKeyDate}
       />
       <View style={styles.desc}>
         <Ionicons name="sparkles-outline" size={16} color={colors.primaryBright} />
-        <Text style={[type.bodySecondary, { flex: 1, marginLeft: spacing.sm }]}>{description}</Text>
+        <Text style={[type.bodySecondary, { flex: 1, marginStart: spacing.sm }]}>{description}</Text>
       </View>
 
       {/* Only details that were read (or typed) are shown; the rest stay hidden until asked for. */}
@@ -375,7 +379,7 @@ export default function ScanDocument() {
         <>
           {visibleFields.length ? (
             <>
-              <SectionTitle>Details</SectionTitle>
+              <SectionTitle>{t('Details')}</SectionTitle>
               <FieldEditor
                 fields={visibleFields}
                 onChange={(changed) => setFields((all) => all.map((f) => changed.find((c) => c.key === f.key) ?? f))}
@@ -389,31 +393,30 @@ export default function ScanDocument() {
               style={({ pressed }) => [styles.addDetails, pressed && { opacity: 0.8 }]}
             >
               <Ionicons name="add-circle-outline" size={18} color={colors.primaryBright} />
-              <Text style={[type.bodySecondary, { color: colors.primaryBright, marginLeft: spacing.sm }]}>
-                {visibleFields.length ? 'Add more details' : 'Add details (optional)'}
+              <Text style={[type.bodySecondary, { color: colors.primaryBright, marginStart: spacing.sm }]}>
+                {visibleFields.length ? t('Add more details') : t('Add details (optional)')}
               </Text>
             </Pressable>
           ) : null}
         </>
       ) : null}
 
-      <TextField label="Notes (optional)" value={notes} onChangeText={setNotes} multiline maxLength={1000} placeholder="Private notes, encrypted" />
+      <TextField label={t('Notes (optional)')} value={notes} onChangeText={setNotes} multiline maxLength={1000} placeholder={t('Private notes, encrypted')} />
       {totalLines > 0 ? (
         <Pressable onPress={() => setShowText((v) => !v)} accessibilityRole="button" style={{ marginBottom: spacing.md }}>
           <Text style={[type.caption, { color: colors.primaryBright }]}>
-            {showText ? 'Hide' : 'Show'} the text read from the scan ({totalLines} lines)
+            {showText ? t('Hide the text read from the scan ({count} lines)', { count: totalLines }) : t('Show the text read from the scan ({count} lines)', { count: totalLines })}
           </Text>
           {showText ? (
             <Text style={[type.caption, { marginTop: spacing.sm, fontFamily: 'monospace', color: colors.textSecondary }]}>
-              {pages.map((p) => `— ${p.label} —\n${p.lines.join('\n')}`).join('\n\n')}
+              {pages.map((p) => `— ${tLabel(p.label)} —\n${p.lines.join('\n')}`).join('\n\n')}
             </Text>
           ) : null}
         </Pressable>
       ) : null}
       {error ? <Notice tone="danger">{error}</Notice> : null}
-      <Notice tone="success" title="Private by design">
-        Images and details are encrypted with AES-256-GCM on this device. Recognition ran on this phone; nothing was
-        uploaded.
+      <Notice tone="success" title={t('Private by design')}>
+        {t('Images and details are encrypted with AES-256-GCM on this device. Recognition ran on this phone; nothing was uploaded.')}
       </Notice>
     </Screen>
   );
@@ -431,7 +434,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  thumbWrap: { width: 112, marginRight: spacing.md, alignItems: 'center' },
+  thumbWrap: { width: 112, marginEnd: spacing.md, alignItems: 'center' },
   thumb: { width: 112, height: 80, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   addThumb: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderColor: colors.primaryBorder },
   addDetails: {

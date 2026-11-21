@@ -8,11 +8,13 @@ import { Chip, EmptyState, IconButton, privateInputProps } from '../../src/compo
 import { colors, radius, spacing } from '../../src/theme/theme';
 import { allCategories, findCategory, findDocType } from '../../src/vault/categories';
 import { useVault } from '../../src/vault/VaultContext';
+import { useI18n } from '../../src/i18n';
 
 /** Search runs entirely in memory over the decrypted index. Nothing is indexed on disk. */
 export default function Search() {
   const router = useRouter();
   const { index } = useVault();
+  const { t, back, direction } = useI18n();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string | null>(null);
   const cats = allCategories(index.customCategories);
@@ -27,7 +29,9 @@ export default function Search() {
           d.name,
           d.notes ?? '',
           findCategory(d.categoryId, index.customCategories)?.name ?? '',
+          t(findCategory(d.categoryId, index.customCategories)?.name ?? ''),
           findDocType(d.categoryId, d.docType)?.label ?? '',
+          t(findDocType(d.categoryId, d.docType)?.label ?? ''),
           ...d.pages.map((p) => p.label),
           d.description ?? '',
           ...(d.fields ?? []).map((f) => f.value),
@@ -37,12 +41,12 @@ export default function Search() {
         return hay.includes(needle);
       })
       .sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [q, cat, index]);
+  }, [q, cat, index, t]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, direction }} edges={['top']}>
       <View style={styles.bar}>
-        <IconButton icon="chevron-back" accessibilityLabel="Go back" onPress={() => router.back()} />
+        <IconButton icon={back} accessibilityLabel={t('Go back')} onPress={() => router.back()} />
         <View style={styles.inputWrap}>
           <Ionicons name="search" size={18} color={colors.textMuted} />
           <TextInput
@@ -50,12 +54,12 @@ export default function Search() {
             autoFocus
             value={q}
             onChangeText={setQ}
-            placeholder="Name, notes, type…"
+            placeholder={t('Search documents')}
             placeholderTextColor={colors.textMuted}
             selectionColor={colors.primary}
             returnKeyType="search"
             style={styles.input}
-            accessibilityLabel="Search documents"
+            accessibilityLabel={t('Search documents')}
           />
           {q ? <Ionicons name="close-circle" size={18} color={colors.textMuted} onPress={() => setQ('')} /> : null}
         </View>
@@ -64,7 +68,7 @@ export default function Search() {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[{ id: null as string | null, name: 'All' }, ...cats.map((c) => ({ id: c.id as string | null, name: c.name.replace(' Documents', '') }))]}
+          data={[{ id: null as string | null, name: t('All') }, ...cats.map((c) => ({ id: c.id as string | null, name: t(c.name) }))]}
           keyExtractor={(c) => c.id ?? 'all'}
           renderItem={({ item }) => <Chip label={item.name} selected={cat === item.id} onPress={() => setCat(item.id)} />}
         />
@@ -82,7 +86,7 @@ export default function Search() {
           />
         )}
         ListEmptyComponent={
-          <EmptyState icon="search-outline" title="No documents found" body="Try another word or category." />
+          <EmptyState icon="search-outline" title={t('No documents found')} body={t('Try another word or category.')} />
         }
       />
     </SafeAreaView>
@@ -95,7 +99,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: spacing.sm,
+    marginStart: spacing.sm,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -103,5 +107,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     height: 44,
   },
-  input: { flex: 1, color: colors.text, fontSize: 16, marginLeft: spacing.sm },
+  input: { flex: 1, color: colors.text, fontSize: 16, marginStart: spacing.sm },
 });

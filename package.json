@@ -24,7 +24,8 @@
     "submit:android": "eas submit -p android --profile production",
     "submit:ios": "eas submit -p ios --profile production",
     "brand": "node scripts/build-brand-assets.js",
-    "verify:apk": "node scripts/verify-apk.mjs"
+    "verify:apk": "node scripts/verify-apk.mjs",
+    "i18n:check": "node scripts/i18n-check.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

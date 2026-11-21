@@ -6,6 +6,7 @@ import { PinPad } from '../components/PinPad';
 import { LogoMark } from '../components/ui';
 import { colors, spacing, type } from '../theme/theme';
 import { useVault } from '../vault/VaultContext';
+import { useI18n } from '../i18n';
 
 type Options = {
   /** Require the PIN even if biometrics are enabled (destructive actions). */
@@ -24,6 +25,7 @@ const MAX_MODAL_ATTEMPTS = 5;
 
 export function ReauthProvider({ children }: { children: React.ReactNode }) {
   const vault = useVault();
+  const { t, direction } = useI18n();
   const [request, setRequest] = useState<{ reason: string } | null>(null);
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
@@ -56,7 +58,7 @@ export function ReauthProvider({ children }: { children: React.ReactNode }) {
         const res = await vault.runExternal(() =>
           LocalAuthentication.authenticateAsync({
             promptMessage: reason,
-            cancelLabel: 'Use PIN',
+            cancelLabel: t('Use PIN'),
             disableDeviceFallback: true,
             // 'weak' also allows face unlock on Android phones whose face sensor is class 2.
             biometricsSecurityLevel: vault.meta?.bioBinding === 'device-check' ? 'weak' : 'strong',
@@ -89,9 +91,9 @@ export function ReauthProvider({ children }: { children: React.ReactNode }) {
         vault.lock();
         return;
       }
-      setError(`Incorrect PIN. ${MAX_MODAL_ATTEMPTS - failures.current} attempts left before the vault locks.`);
+      setError(t('Incorrect PIN. {count} attempts left before the vault locks.', { count: MAX_MODAL_ATTEMPTS - failures.current }));
     } catch {
-      setError('Verification failed.');
+      setError(t('Verification failed.'));
       setPin('');
     } finally {
       setBusy(false);
@@ -102,10 +104,10 @@ export function ReauthProvider({ children }: { children: React.ReactNode }) {
     <Ctx.Provider value={{ authenticate, requestPin }}>
       {children}
       <Modal visible={!!request} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => finish(null)}>
-        <SafeAreaView style={styles.modal}>
+        <SafeAreaView style={[styles.modal, { direction }]}>
           <View style={styles.top}>
             <LogoMark size={52} />
-            <Text style={[type.h2, { marginTop: spacing.lg, textAlign: 'center' }]}>Confirm it's you</Text>
+            <Text style={[type.h2, { marginTop: spacing.lg, textAlign: 'center' }]}>{t('Confirm it is you')}</Text>
             <Text style={[type.bodySecondary, { marginTop: spacing.sm, textAlign: 'center' }]}>{request?.reason}</Text>
             <View style={{ height: 36, marginTop: spacing.md, justifyContent: 'center' }}>
               {busy ? (
@@ -124,7 +126,7 @@ export function ReauthProvider({ children }: { children: React.ReactNode }) {
             errorSignal={shake}
           />
           <Pressable onPress={() => finish(null)} accessibilityRole="button" style={styles.cancel}>
-            <Text style={[type.button, { color: colors.textSecondary }]}>Cancel</Text>
+            <Text style={[type.button, { color: colors.textSecondary }]}>{t('Cancel')}</Text>
           </Pressable>
         </SafeAreaView>
       </Modal>

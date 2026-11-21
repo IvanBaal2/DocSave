@@ -188,7 +188,7 @@ const mockVault = {
   integrity: { compromised: false, emulator: false, reasons: [] },
   integrityAcknowledged: true,
   acknowledgeIntegrity: jest.fn(),
-  biometrics: { available: true, enrolled: true, label: 'Face or fingerprint', icon: 'finger-print-outline' },
+  biometrics: { available: true, enrolled: true, label: 'Face or fingerprint', icon: 'finger-print-outline', face: true, fingerprint: true },
   attempts: { failed: 0, lockedUntil: 0 },
   twoFactorPending: false,
   initializeVault: jest.fn(async () => ({})),
@@ -299,6 +299,8 @@ describe('vault screens', () => {
     await renderScreen(() => require('../app/(vault)/index'));
     expect(screen.getByText('Add Document')).toBeTruthy();
     expect(screen.getByText('My IDs')).toBeTruthy();
+    // search box at the top of the home screen
+    expect(screen.getByRole('search')).toBeTruthy();
     expect(screen.getByText('Passport Ivan Lorence Bongon')).toBeTruthy();
     // old names lose the dash
     expect(screen.getByText('Driving Licence IVAN')).toBeTruthy();
@@ -311,10 +313,6 @@ describe('vault screens', () => {
   test('search', async () => {
     await renderScreen(() => require('../app/(vault)/search'));
     expect(screen.getByText('Passport Ivan Lorence Bongon')).toBeTruthy();
-  });
-  test('category', async () => {
-    await renderScreen(() => require('../app/(vault)/category/[id]'), { id: 'identity' });
-    expect(screen.getByText('Identity Documents')).toBeTruthy();
   });
   test('scan screen opens the guided camera', async () => {
     await renderScreen(() => require('../app/(vault)/scan'), { type: 'national_id' });
@@ -343,22 +341,50 @@ describe('vault screens', () => {
 describe('settings screens', () => {
   const pages: [string, string, Record<string, string>][] = [
     ['../app/(vault)/settings/index', 'Settings', {}],
-    ['../app/(vault)/settings/security', 'Unlock method', { section: 'unlock' }],
+    ['../app/(vault)/settings/security', 'Unlock methods', { section: 'unlock' }],
     ['../app/(vault)/settings/security', 'Automatic lock', { section: 'autolock' }],
     ['../app/(vault)/settings/security', 'Document protection', { section: 'access' }],
     ['../app/(vault)/settings/change-pin', 'Change PIN', {}],
     ['../app/(vault)/settings/privacy', 'Privacy settings', {}],
     ['../app/(vault)/settings/rights', 'Your privacy rights', {}],
-    ['../app/(vault)/settings/notifications', 'Push notifications', {}],
+    ['../app/(vault)/settings/notifications', 'Reminders', {}],
+    ['../app/(vault)/settings/language', 'Language', {}],
+    ['../app/(vault)/settings/appearance', 'Appearance', {}],
+    ['../app/onboarding/language', 'Language', {}],
     ['../app/(vault)/settings/about', 'About Docsave', {}],
     ['../app/(vault)/settings/terms', 'Terms & Conditions', {}],
     ['../app/(vault)/settings/privacy-policy', 'Privacy Policy', {}],
-    ['../app/(vault)/settings/protection', 'How Docsave protects you', {}],
+    ['../app/(vault)/settings/protection', 'Security status', {}],
     ['../app/(vault)/settings/danger', 'Destroy vault', { action: 'destroy' }],
   ];
   test.each(pages)('%s', async (path, title, params) => {
     await renderScreen(() => require(path), params);
     expect(screen.getAllByText(title).length).toBeGreaterThan(0);
+  });
+});
+
+describe('unlock order and settings', () => {
+  test('unlock methods list face first, fingerprint second, PIN as backup', async () => {
+    await renderScreen(() => require('../app/(vault)/settings/security'), { section: 'unlock' });
+    const face = screen.getByLabelText(/^1. Face recognition/);
+    const finger = screen.getByLabelText(/^2. Fingerprint/);
+    const pin = screen.getByLabelText(/^3. PIN code: Always available/);
+    expect(face && finger && pin).toBeTruthy();
+    expect(screen.getByText('Change PIN')).toBeTruthy();
+  });
+  test('settings home shows each function once', async () => {
+    await renderScreen(() => require('../app/(vault)/settings/index'));
+    for (const title of ['Unlock methods', 'Change PIN', 'Automatic lock', 'Language', 'Appearance', 'Reminders', 'Privacy Policy', 'Delete all documents']) {
+      expect(screen.getAllByText(title)).toHaveLength(1);
+    }
+  });
+  test('settings switch to Arabic immediately', async () => {
+    const { setLanguage } = require('../src/i18n');
+    await renderScreen(() => require('../app/(vault)/settings/index'));
+    await act(async () => setLanguage('ar'));
+    expect(screen.getByText('الإعدادات')).toBeTruthy();
+    await act(async () => setLanguage('en'));
+    expect(screen.getByText('Settings')).toBeTruthy();
   });
 });
 

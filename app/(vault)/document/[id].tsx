@@ -11,6 +11,7 @@ import type { DocField } from '../../../src/vault/types';
 import { Button, Chip, IconButton, Notice, TextField, haptic, type IconName } from '../../../src/components/ui';
 import { TamperError, wipe } from '../../../src/crypto/core';
 import { exportPage } from '../../../src/security/exporter';
+import { t as tr, tLabel, useI18n } from '../../../src/i18n';
 import { useReauth } from '../../../src/security/ReauthProvider';
 import { colors, radius, spacing, type } from '../../../src/theme/theme';
 import { allCategories, findCategory, findDocType, findDocTypeAny } from '../../../src/vault/categories';
@@ -23,6 +24,7 @@ export default function DocumentViewer() {
   const router = useRouter();
   const vault = useVault();
   const { authenticate } = useReauth();
+  const { t, back, direction } = useI18n();
   const doc = vault.index.documents.find((d) => d.id === id);
 
   const [authorized, setAuthorized] = useState(false);
@@ -58,7 +60,7 @@ export default function DocumentViewer() {
     }
     authInFlight.current = true;
     try {
-      setAuthorized(await authRef.current('Unlock to view this document'));
+      setAuthorized(await authRef.current(tr('Unlock to view this document')));
     } finally {
       authInFlight.current = false;
     }
@@ -102,8 +104,8 @@ export default function DocumentViewer() {
       .catch((e) =>
         setError(
           e instanceof TamperError
-            ? 'Integrity check failed: this encrypted file was modified or corrupted and cannot be trusted.'
-            : (e as Error).message || 'The document could not be decrypted.',
+            ? tr('Integrity check failed: this encrypted file was modified or corrupted and cannot be trusted.')
+            : (e as Error).message || tr('The document could not be decrypted.'),
         ),
       )
       .finally(() => !cancelled && setLoading(false));
@@ -115,8 +117,8 @@ export default function DocumentViewer() {
   if (!doc) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, padding: spacing.xl }}>
-        <Notice tone="info">This document no longer exists.</Notice>
-        <Button title="Back" variant="secondary" onPress={() => router.back()} />
+        <Notice tone="info">{t('This document no longer exists.')}</Notice>
+        <Button title={t('Back')} variant="secondary" onPress={() => router.back()} />
       </SafeAreaView>
     );
   }
@@ -127,20 +129,20 @@ export default function DocumentViewer() {
   function confirmExport() {
     if (!bytes || !page) return;
     Alert.alert(
-      'Export this page?',
-      'Docsave will create an unencrypted copy so you can save, print or send it. Once it leaves Docsave, that copy is no longer protected by your vault.',
+      t('Export this page?'),
+      t('Docsave will create an unencrypted copy so you can save, print or send it. Once it leaves Docsave, that copy is no longer protected by your vault.'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Export',
+          text: t('Export'),
           onPress: async () => {
-            if (!(await authenticate('Confirm export'))) return;
+            if (!(await authenticate(t('Confirm export')))) return;
             try {
               await vault.runExternal(() =>
                 exportPage(bytes, `${displayName(doc!.name)} ${doc!.pages.length > 1 ? page.label : ''}`, page.mimeType),
               );
             } catch (e) {
-              Alert.alert('Export failed', (e as Error)?.message || 'The page could not be exported.');
+              Alert.alert(t('Export failed'), (e as Error)?.message || t('The page could not be exported.'));
             }
           },
         },
@@ -149,13 +151,13 @@ export default function DocumentViewer() {
   }
 
   function confirmDelete() {
-    Alert.alert('Delete document?', `"${displayName(doc!.name)}" and all its pages will be permanently deleted from this device. This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Delete document?'), t('“{name}” and all its pages will be permanently deleted from this device. This cannot be undone.', { name: displayName(doc!.name) }), [
+      { text: t('Cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('Delete'),
         style: 'destructive',
         onPress: async () => {
-          if (!(await authenticate('Confirm deletion'))) return;
+          if (!(await authenticate(t('Confirm deletion')))) return;
           clear();
           await vault.deleteDocument(doc!.id);
           haptic.success();
@@ -166,21 +168,21 @@ export default function DocumentViewer() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, direction }} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <IconButton icon="chevron-back" accessibilityLabel="Close document" onPress={() => router.back()} />
+        <IconButton icon={back} accessibilityLabel={t('Close document')} onPress={() => router.back()} />
         <View style={{ flex: 1, marginHorizontal: spacing.md }}>
           <Text style={type.h2} numberOfLines={1}>
             {displayName(doc.name)}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
             <Ionicons name="lock-closed" size={11} color={colors.primary} />
-            <Text style={[type.caption, { marginLeft: 4 }]} numberOfLines={1}>
-              {dt?.label ?? cat?.name} · decrypted in memory only
+            <Text style={[type.caption, { marginStart: 4 }]} numberOfLines={1}>
+              {t(dt?.label ?? cat?.name ?? '')} · {t('decrypted in memory only')}
             </Text>
           </View>
         </View>
-        <IconButton icon="information-circle-outline" accessibilityLabel="Document details" onPress={() => setShowInfo(true)} />
+        <IconButton icon="information-circle-outline" accessibilityLabel={t('Document details')} onPress={() => setShowInfo(true)} />
       </View>
 
       {doc.pages.length > 1 ? (
@@ -194,7 +196,7 @@ export default function DocumentViewer() {
               style={[styles.tab, i === pageIdx && styles.tabActive]}
             >
               <Text style={[type.bodySecondary, { fontSize: 13 }, i === pageIdx && { color: colors.text, fontWeight: '600' }]}>
-                {p.label}
+                {tLabel(p.label)}
               </Text>
             </Pressable>
           ))}
@@ -207,22 +209,22 @@ export default function DocumentViewer() {
             <View style={styles.lockBadge}>
               <Ionicons name="lock-closed" size={34} color={colors.primaryBright} />
             </View>
-            <Text style={[type.h2, { marginTop: spacing.lg }]}>Protected document</Text>
+            <Text style={[type.h2, { marginTop: spacing.lg }]}>{t('Protected document')}</Text>
             <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.sm, marginBottom: spacing.xl }]}>
-              Authenticate to decrypt and view this document.
+              {t('Authenticate to decrypt and view this document.')}
             </Text>
-            <Button title="Unlock document" icon={vault.biometrics.icon} onPress={requestAccess} />
+            <Button title={t('Unlock document')} icon={vault.biometrics.icon} onPress={requestAccess} />
           </View>
         ) : error ? (
           <View style={styles.center}>
-            <Notice tone="danger" title="Cannot open document">
+            <Notice tone="danger" title={t('Cannot open document')}>
               {error}
             </Notice>
           </View>
         ) : loading || !bytes || !page ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={[type.caption, { marginTop: spacing.md }]}>Verifying integrity and decrypting…</Text>
+            <Text style={[type.caption, { marginTop: spacing.md }]}>{t('Verifying integrity and decrypting…')}</Text>
           </View>
         ) : (
           <SecureViewer key={page.id} base64={bytes} mimeType={page.mimeType} rotation={rotation} />
@@ -230,19 +232,19 @@ export default function DocumentViewer() {
       </View>
 
       <View style={styles.toolbar}>
-        <ToolbarButton icon="create-outline" label="Edit" onPress={() => setEditing(true)} />
+        <ToolbarButton icon="create-outline" label={t('Edit')} onPress={() => setEditing(true)} />
         {page?.mimeType.startsWith('image/') ? (
-          <ToolbarButton icon="refresh-outline" label="Rotate" onPress={() => setRotation((r) => (r + 90) % 360)} />
+          <ToolbarButton icon="refresh-outline" label={t('Rotate')} onPress={() => setRotation((r) => (r + 90) % 360)} />
         ) : null}
         {doc.pages.length > 1 ? (
           <ToolbarButton
             icon="swap-horizontal"
-            label={`Show ${doc.pages[(pageIdx + 1) % doc.pages.length].label}`}
+            label={t('Show {side}', { side: tLabel(doc.pages[(pageIdx + 1) % doc.pages.length].label) })}
             onPress={() => setPageIdx((i) => (i + 1) % doc.pages.length)}
           />
         ) : null}
-        <ToolbarButton icon="share-outline" label="Export" onPress={confirmExport} />
-        <ToolbarButton icon="trash-outline" label="Delete" danger onPress={confirmDelete} />
+        <ToolbarButton icon="share-outline" label={t('Export')} onPress={confirmExport} />
+        <ToolbarButton icon="trash-outline" label={t('Delete')} danger onPress={confirmDelete} />
       </View>
 
       <Modal visible={showInfo} transparent animationType="slide" onRequestClose={() => setShowInfo(false)}>
@@ -253,50 +255,50 @@ export default function DocumentViewer() {
             <View style={[styles.docIcon, { backgroundColor: (cat?.color ?? colors.primary) + '1F' }]}>
               <Ionicons name={iconForDocument(doc)} size={24} color={cat?.color ?? colors.primaryBright} />
             </View>
-            <View style={{ flex: 1, marginLeft: spacing.md }}>
+            <View style={{ flex: 1, marginStart: spacing.md }}>
               <Text style={type.h2}>{displayName(doc.name)}</Text>
-              <Text style={type.caption}>{dt?.label ?? cat?.name}</Text>
+              <Text style={type.caption}>{t(dt?.label ?? cat?.name ?? '')}</Text>
             </View>
             <ExpiryBadge date={doc.expiryDate} />
           </View>
           {doc.description ? (
             <View style={styles.desc}>
               <Ionicons name="sparkles-outline" size={15} color={colors.primaryBright} />
-              <Text style={[type.bodySecondary, { flex: 1, marginLeft: spacing.sm }]}>{doc.description}</Text>
+              <Text style={[type.bodySecondary, { flex: 1, marginStart: spacing.sm }]}>{doc.description}</Text>
             </View>
           ) : null}
           {doc.fields?.length ? (
             <View style={{ marginBottom: spacing.md }}>
-              <Text style={[type.overline, { marginBottom: spacing.xs }]}>Details</Text>
+              <Text style={[type.overline, { marginBottom: spacing.xs }]}>{t('Details')}</Text>
               {doc.fields.map((f) => (
                 <View key={f.key} style={styles.fieldRow}>
-                  <Text style={[type.bodySecondary, { width: 130 }]}>{f.label}</Text>
+                  <Text style={[type.bodySecondary, { width: 130 }]}>{t(f.label)}</Text>
                   {f.value ? (
                     <Text style={[type.body, { flex: 1, textAlign: 'right' }]} selectable={false}>
                       {/date|expiry/i.test(f.key) && /^\d{4}-\d{2}-\d{2}$/.test(f.value) ? formatDate(f.value) : f.value}
                     </Text>
                   ) : (
-                    <Text style={[type.caption, { flex: 1, textAlign: 'right', color: colors.warning }]}>Not recognised</Text>
+                    <Text style={[type.caption, { flex: 1, textAlign: 'right', color: colors.warning }]}>{t('Not recognised')}</Text>
                   )}
                 </View>
               ))}
             </View>
           ) : null}
-          <InfoRow icon="folder-outline" label="Category" value={cat?.name ?? '—'} />
+          <InfoRow icon="folder-outline" label={t('Category')} value={cat ? t(cat.name) : '—'} />
           {doc.expiryDate ? (
-            <InfoRow icon="calendar-outline" label={doc.categoryId === 'travel' ? 'Travel date' : 'Expires'} value={formatDate(doc.expiryDate)} />
+            <InfoRow icon="calendar-outline" label={doc.categoryId === 'travel' ? t('Travel date') : t('Expires')} value={formatDate(doc.expiryDate)} />
           ) : null}
-          <InfoRow icon="layers-outline" label="Pages" value={doc.pages.map((p) => p.label).join(', ')} />
-          <InfoRow icon="server-outline" label="Encrypted size" value={formatBytes(doc.pages.reduce((n, p) => n + p.size, 0))} />
-          <InfoRow icon="time-outline" label="Added" value={formatTimestamp(doc.createdAt)} />
-          <InfoRow icon="shield-checkmark-outline" label="Protection" value="AES-256-GCM · per-file key" />
+          <InfoRow icon="layers-outline" label={t('Pages')} value={doc.pages.map((p) => tLabel(p.label)).join(', ')} />
+          <InfoRow icon="server-outline" label={t('Encrypted size')} value={formatBytes(doc.pages.reduce((n, p) => n + p.size, 0))} />
+          <InfoRow icon="time-outline" label={t('Added')} value={formatTimestamp(doc.createdAt)} />
+          <InfoRow icon="shield-checkmark-outline" label={t('Protection')} value={t('AES-256-GCM · per-file key')} />
           {doc.notes ? (
             <View style={{ marginTop: spacing.md }}>
-              <Text style={type.overline}>Notes</Text>
+              <Text style={type.overline}>{t('Notes')}</Text>
               <Text style={[type.body, { marginTop: spacing.xs }]}>{doc.notes}</Text>
             </View>
           ) : null}
-          <Button title="Close" variant="secondary" onPress={() => setShowInfo(false)} style={{ marginTop: spacing.xl }} />
+          <Button title={t('Close')} variant="secondary" onPress={() => setShowInfo(false)} style={{ marginTop: spacing.xl }} />
           </ScrollView>
         </View>
       </Modal>
@@ -308,6 +310,7 @@ export default function DocumentViewer() {
 
 function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () => void; docId: string }) {
   const vault = useVault();
+  const { t } = useI18n();
   const doc = vault.index.documents.find((d) => d.id === docId);
   const [name, setName] = useState(displayName(doc?.name ?? ''));
   const [notes, setNotes] = useState(doc?.notes ?? '');
@@ -331,7 +334,7 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
   if (!doc) return null;
 
   async function save() {
-    if (!name.trim()) return setError('The name cannot be empty.');
+    if (!name.trim()) return setError(t('The name cannot be empty.'));
     await vault.updateDocument(docId, {
       name: name.trim(),
       notes: notes.trim() || undefined,
@@ -351,32 +354,32 @@ function EditModal({ visible, onClose, docId }: { visible: boolean; onClose: () 
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgElevated }}>
         <View style={styles.header}>
-          <Text style={[type.h2, { flex: 1 }]}>Edit document</Text>
-          <IconButton icon="close" accessibilityLabel="Cancel editing" onPress={onClose} />
+          <Text style={[type.h2, { flex: 1 }]}>{t('Edit document')}</Text>
+          <IconButton icon="close" accessibilityLabel={t('Cancel editing')} onPress={onClose} />
         </View>
         <ScrollView contentContainerStyle={{ padding: spacing.xl }} keyboardShouldPersistTaps="handled">
-          <TextField label="Name" value={name} onChangeText={setName} maxLength={80} error={error} />
-          <Text style={[type.overline, { marginBottom: spacing.sm }]}>Category</Text>
+          <TextField label={t('Name')} value={name} onChangeText={setName} maxLength={80} error={error} />
+          <Text style={[type.overline, { marginBottom: spacing.sm }]}>{t('Category')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.lg }}>
             {allCategories(vault.index.customCategories).map((c) => (
               <Chip
                 key={c.id}
-                label={c.name.replace(' Documents', '')}
+                label={t(c.name)}
                 icon={c.icon as IconName}
                 selected={categoryId === c.id}
                 onPress={() => setCategoryId(c.id)}
               />
             ))}
           </View>
-          <ExpiryField label={categoryId === 'travel' ? 'Travel date' : 'Expiry date'} value={expiry} onChange={setExpiry} />
+          <ExpiryField label={categoryId === 'travel' ? t('Travel date') : t('Expiry date')} value={expiry} onChange={setExpiry} />
           {fields.length ? (
             <>
-              <Text style={[type.overline, { marginBottom: spacing.sm, marginTop: spacing.sm }]}>Details</Text>
+              <Text style={[type.overline, { marginBottom: spacing.sm, marginTop: spacing.sm }]}>{t('Details')}</Text>
               <FieldEditor fields={fields} onChange={setFields} />
             </>
           ) : null}
-          <TextField label="Notes" value={notes} onChangeText={setNotes} multiline maxLength={1000} />
-          <Button title="Save changes" icon="checkmark" onPress={save} />
+          <TextField label={t('Notes')} value={notes} onChangeText={setNotes} multiline maxLength={1000} />
+          <Button title={t('Save changes')} icon="checkmark" onPress={save} />
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -403,7 +406,7 @@ function InfoRow({ icon, label, value }: { icon: IconName; label: string; value:
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}>
       <Ionicons name={icon} size={18} color={colors.textMuted} />
-      <Text style={[type.bodySecondary, { marginLeft: spacing.md, width: 110 }]}>{label}</Text>
+      <Text style={[type.bodySecondary, { marginStart: spacing.md, width: 110 }]}>{label}</Text>
       <Text style={[type.body, { flex: 1, textAlign: 'right' }]} numberOfLines={2}>
         {value}
       </Text>

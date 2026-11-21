@@ -8,6 +8,7 @@
  */
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { t } from '../i18n';
 import type { DocumentRecord, Settings } from '../vault/types';
 
 const CHANNEL_ID = 'docsave-reminders';
@@ -26,7 +27,7 @@ Notifications.setNotificationHandler({
 export async function ensureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: 'Document reminders',
+    name: t('Document reminders'),
     importance: Notifications.AndroidImportance.DEFAULT,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
     showBadge: false,
@@ -47,20 +48,19 @@ export async function requestPermission(): Promise<boolean> {
 type Kind = 'identity' | 'travel' | 'expiry';
 
 export function reminderText(kind: Kind, days: number, detail: Settings['notificationDetail']) {
-  const when = days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+  // Texts use the app language at the time the reminder is scheduled.
+  const title = t('Docsave reminder');
   if (detail === 'generic') {
-    return {
-      title: 'Docsave reminder',
-      body: 'A document in your vault needs your attention. Open Docsave to review it.',
-    };
+    return { title, body: t('A document in your vault needs your attention. Open Docsave to review it.') };
   }
+  const when = days <= 0 ? t('today') : days === 1 ? t('tomorrow') : t('in {n} days', { n: days });
   switch (kind) {
     case 'identity':
-      return { title: 'Docsave reminder', body: `An identity document expires ${when}.` };
+      return { title, body: t('An identity document expires {when}.', { when }) };
     case 'travel':
-      return { title: 'Docsave reminder', body: `You have a travel document dated ${when}.` };
+      return { title, body: t('You have a travel document dated {when}.', { when }) };
     default:
-      return { title: 'Docsave reminder', body: `A document expires ${when}.` };
+      return { title, body: t('A document expires {when}.', { when }) };
   }
 }
 

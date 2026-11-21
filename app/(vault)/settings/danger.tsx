@@ -4,12 +4,14 @@ import { Keyboard } from 'react-native';
 import { CheckRow } from '../../../src/components/Checkbox';
 import { Button, Header, Notice, Screen, TextField, haptic } from '../../../src/components/ui';
 import { spacing } from '../../../src/theme/theme';
+import { useI18n } from '../../../src/i18n';
 import { useVault } from '../../../src/vault/VaultContext';
 
 export default function DangerZone() {
   const { action } = useLocalSearchParams<{ action: 'delete-all' | 'destroy' }>();
   const router = useRouter();
   const vault = useVault();
+  const { t } = useI18n();
   const [ack, setAck] = useState(false);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,7 +38,7 @@ export default function DangerZone() {
     <Screen
       footer={
         <Button
-          title={destroy ? 'Permanently destroy vault' : `Delete ${count} document${count === 1 ? '' : 's'}`}
+          title={destroy ? t('Permanently destroy vault') : count === 1 ? t('Delete 1 document') : t('Delete {count} documents', { count })}
           variant="danger"
           icon={destroy ? 'nuclear' : 'trash'}
           loading={busy}
@@ -45,16 +47,16 @@ export default function DangerZone() {
         />
       }
     >
-      <Header title={destroy ? 'Destroy vault' : 'Delete all documents'} />
+      <Header title={destroy ? t('Destroy vault') : t('Delete all documents')} />
       {/* The confirmation controls sit directly under the warning, near the top, so the keyboard never covers them. */}
-      <Notice tone="danger" title="This cannot be undone">
+      <Notice tone="danger" title={t('This cannot be undone')}>
         {destroy
-          ? 'The encryption keys are erased from secure hardware, then all encrypted files, settings and reminders are deleted. Docsave has no backup and no recovery, and will return to first-time setup.'
-          : `All ${count} documents and their encrypted files will be deleted. Docsave has no backup and no recovery. Your PIN and settings are kept.`}
+          ? t('The encryption keys are erased from secure hardware, then all encrypted files, settings and reminders are deleted. Docsave has no backup and no recovery, and will return to first-time setup.')
+          : t('All {count} documents and their encrypted files will be deleted. Docsave has no backup and no recovery. Your PIN and settings are kept.', { count })}
       </Notice>
-      <CheckRow checked={ack} onChange={setAck} label="I understand my documents will be permanently and irreversibly lost." />
+      <CheckRow checked={ack} onChange={setAck} label={t('I understand my documents will be permanently and irreversibly lost.')} />
       <TextField
-        label={`Type ${word} to confirm`}
+        label={t('Type {word} to confirm', { word })}
         value={typed}
         onChangeText={setTyped}
         autoCapitalize="characters"

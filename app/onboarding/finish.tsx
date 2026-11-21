@@ -7,6 +7,7 @@ import { PRIVACY, TERMS } from '../../src/content/legal';
 import { colors, spacing, type } from '../../src/theme/theme';
 import { useVault, type SetupResult } from '../../src/vault/VaultContext';
 import { ONBOARDING_STEPS, useOnboarding } from './_layout';
+import { useI18n } from '../../src/i18n';
 
 const STEPS = [
   'Generating a random 256-bit encryption key',
@@ -19,6 +20,8 @@ export default function Finish() {
   const router = useRouter();
   const ob = useOnboarding();
   const vault = useVault();
+  const { t } = useI18n();
+  const bioLabel = t(vault.biometrics.label);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SetupResult | null>(null);
@@ -46,7 +49,7 @@ export default function Finish() {
     } catch (e) {
       clearInterval(ticker);
       setProgress(0);
-      setError((e as Error).message || 'Unknown error');
+      setError((e as Error).message || t('Unknown error'));
     }
   }
 
@@ -60,10 +63,10 @@ export default function Finish() {
   if (!ready && !result) {
     return (
       <Screen>
-        <Notice tone="warning" title="Setup incomplete">
-          Please complete every setup step before your vault can be created.
+        <Notice tone="warning" title={t('Setup incomplete')}>
+          {t('Please complete every setup step before your vault can be created.')}
         </Notice>
-        <Button title="Back to start" onPress={() => router.replace('/onboarding')} style={{ marginTop: spacing.lg }} />
+        <Button title={t('Back to start')} onPress={() => router.replace('/onboarding')} style={{ marginTop: spacing.lg }} />
       </Screen>
     );
   }
@@ -75,11 +78,11 @@ export default function Finish() {
     <Screen
       footer={
         done ? (
-          <Button title="Open my vault" icon="arrow-forward" onPress={vault.enterVault} />
+          <Button title={t('Open my vault')} icon="arrow-forward" onPress={vault.enterVault} />
         ) : error ? (
           <View>
-            <Button title="Try again" onPress={run} />
-            <Button title="Change unlock method" variant="ghost" onPress={() => router.back()} style={{ marginTop: spacing.sm }} />
+            <Button title={t('Try again')} onPress={run} />
+            <Button title={t('Change unlock method')} variant="ghost" onPress={() => router.back()} style={{ marginTop: spacing.sm }} />
           </View>
         ) : undefined
       }
@@ -90,11 +93,11 @@ export default function Finish() {
       <View style={{ alignItems: 'center', marginTop: spacing.lg }}>
         <PulseShield size={92} />
         <Text style={[type.h1, { marginTop: spacing.md, textAlign: 'center' }]}>
-          {done ? 'Your vault is ready' : error ? 'Vault not created' : 'Securing your vault'}
+          {done ? t('Your vault is ready') : error ? t('Vault not created') : t('Securing your vault')}
         </Text>
         {done ? (
           <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.sm }]}>
-            Your encrypted vault was created and verified on this device.
+            {t('Your encrypted vault was created and verified on this device.')}
           </Text>
         ) : null}
       </View>
@@ -114,8 +117,8 @@ export default function Finish() {
                     <Ionicons name="ellipse-outline" size={22} color={colors.textMuted} />
                   )}
                 </View>
-                <Text style={[type.body, { marginLeft: spacing.md, flex: 1, color: isDone || active ? colors.text : colors.textMuted }]}>
-                  {s}
+                <Text style={[type.body, { marginStart: spacing.md, flex: 1, color: isDone || active ? colors.text : colors.textMuted }]}>
+                  {t(s)}
                 </Text>
               </View>
             </FadeIn>
@@ -124,19 +127,18 @@ export default function Finish() {
       </View>
 
       {done && result?.biometricError ? (
-        <Notice tone="warning" title={`${vault.biometrics.label} could not be enabled`}>
-          {`Your vault is protected by your PIN. This phone did not allow ${vault.biometrics.label.toLowerCase()} protection: ${result.biometricError} You can try again later in Settings → Security.`}
+        <Notice tone="warning" title={t('{method} could not be enabled', { method: bioLabel })}>
+          {`${t('Your vault is protected by your PIN. This phone did not allow face or fingerprint protection:')} ${result.biometricError} ${t('You can try again later in Settings → Unlock methods.')}`}
         </Notice>
       ) : done && wanted !== 'pin' && vault.meta?.bioBinding === 'device-check' ? (
-        <Notice tone="info" title={`${vault.biometrics.label} enabled (device check)`}>
-          This phone does not support biometric-bound keys, so Docsave uses the system {vault.biometrics.label.toLowerCase()}{' '}
-          check to release a key stored in the Android Keystore. Your PIN always works too.
+        <Notice tone="info" title={t('{method} enabled (device check)', { method: bioLabel })}>
+          {t('This phone does not support biometric-bound keys, so Docsave uses the system face or fingerprint check to release a key stored in the Android Keystore. Your PIN always works too.')}
         </Notice>
       ) : null}
 
       {error ? (
-        <Notice tone="danger" title="What went wrong">
-          {`${error}\n\nNothing was saved, so you can safely try again.`}
+        <Notice tone="danger" title={t('What went wrong')}>
+          {`${error}\n\n${t('Nothing was saved, so you can safely try again.')}`}
         </Notice>
       ) : null}
     </Screen>

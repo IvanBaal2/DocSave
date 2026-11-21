@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import { colors, radius, spacing, type } from '../theme/theme';
 import { formatDate, parseIsoDate, toIsoDate } from '../utils/format';
+import { t } from '../i18n';
 import { Button } from './ui';
 
 export function ExpiryField({
@@ -43,7 +44,7 @@ export function ExpiryField({
         <Pressable
           onPress={open}
           accessibilityRole="button"
-          accessibilityLabel={`${label}: ${value ? formatDate(value) : 'not set'}`}
+          accessibilityLabel={`${label}: ${value ? formatDate(value) : t('not set')}`}
           style={({ pressed }) => ({
             flex: 1,
             flexDirection: 'row',
@@ -57,15 +58,15 @@ export function ExpiryField({
           })}
         >
           <Ionicons name="calendar-outline" size={19} color={colors.primaryBright} />
-          <Text style={[type.body, { marginLeft: spacing.md, color: value ? colors.text : colors.textMuted }]}>
-            {value ? formatDate(value) : 'Optional — tap to set'}
+          <Text style={[type.body, { marginStart: spacing.md, color: value ? colors.text : colors.textMuted }]}>
+            {value ? formatDate(value) : t('Optional, tap to set')}
           </Text>
         </Pressable>
         {value ? (
           <Pressable
             onPress={() => onChange(undefined)}
             accessibilityRole="button"
-            accessibilityLabel="Clear date"
+            accessibilityLabel={t('Clear date')}
             style={{ padding: spacing.md }}
           >
             <Ionicons name="close-circle" size={22} color={colors.textMuted} />
@@ -87,7 +88,7 @@ export function ExpiryField({
               onChange={(_, d) => d && setDraft(d)}
             />
             <Button
-              title="Set date"
+              title={t('Set date')}
               onPress={() => {
                 onChange(toIsoDate(draft));
                 setIosOpen(false);

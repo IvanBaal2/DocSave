@@ -1,7 +1,7 @@
 # QA plan and evidence
 
 ## Automated (done; reproducible with `npm test`)
-114 Jest tests: crypto format and tamper detection; key lifecycle with real PBKDF2; legacy re-wrap; extraction (MRZ TD1/TD2/TD3, licences, IDs, cards, boarding passes); privacy configuration (permissions, backup, plugins); 27 screen smoke tests.
+139 Jest tests: translations (7 languages, RTL); crypto format and tamper detection; key lifecycle with real PBKDF2; legacy re-wrap; extraction (MRZ TD1/TD2/TD3, licences, IDs, cards, boarding passes); privacy configuration (permissions, backup, plugins); 36 screen tests.
 
 ## Physical-device testing completed so far (owner reports)
 - One Huawei Android phone, several preview builds. The issues found (vault creation, slow PIN, OCR, viewer crash, PIN rejection, setup crash) were fixed. Results are owner-reported; no formal test log was recorded.

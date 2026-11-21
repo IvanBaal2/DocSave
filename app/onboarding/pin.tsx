@@ -6,10 +6,12 @@ import { Chip, Header, Screen, StepDots } from '../../src/components/ui';
 import { validatePin } from '../../src/crypto/core';
 import { colors, spacing, type } from '../../src/theme/theme';
 import { ONBOARDING_STEPS, useOnboarding } from './_layout';
+import { useI18n } from '../../src/i18n';
 
 export default function CreatePin() {
   const router = useRouter();
   const ob = useOnboarding();
+  const { t } = useI18n();
   const [length, setLength] = useState(6);
   const [first, setFirst] = useState<string | null>(null);
   const [value, setValue] = useState('');
@@ -25,7 +27,7 @@ export default function CreatePin() {
   function complete(pin: string) {
     if (!first) {
       const problem = validatePin(pin);
-      if (problem) return fail(problem);
+      if (problem) return fail(t(problem));
       setFirst(pin);
       setValue('');
       setError(null);
@@ -33,7 +35,7 @@ export default function CreatePin() {
     }
     if (pin !== first) {
       setFirst(null);
-      return fail('PINs did not match. Start again.');
+      return fail(t('PINs did not match. Start again.'));
     }
     ob.set({ pin });
     setFirst(null);
@@ -43,19 +45,20 @@ export default function CreatePin() {
 
   return (
     <Screen scroll={false}>
-      <Header title="Backup PIN" right={<StepDots step={2} total={ONBOARDING_STEPS} />} />
+      <Header title={t('Backup PIN')} right={<StepDots step={2} total={ONBOARDING_STEPS} />} />
       <View style={{ flex: 1, justifyContent: 'space-between', paddingBottom: spacing.xl }}>
         <View style={{ paddingHorizontal: spacing.xl, alignItems: 'center' }}>
-          <Text style={[type.h1, { textAlign: 'center' }]}>{first ? 'Confirm your backup PIN' : `Choose a ${length}-digit backup PIN`}</Text>
+          <Text style={[type.h1, { textAlign: 'center' }]}>{first ? t('Confirm your backup PIN') : t('Choose a {n}-digit backup PIN', { n: length })}</Text>
           <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.sm }]}>
-            {ob.unlockMode === 'pin' ? 'You will use this PIN to open Docsave.' : 'You will normally use your face or fingerprint. This PIN is your backup if the sensor fails or changes.'} It cannot be recovered or reset, so choose one you will remember.
+            {ob.unlockMode === 'pin' ? t('You will use this PIN to open Docsave.') : t('You will normally use your face or fingerprint. This PIN is your backup if the sensor fails or changes.')}{' '}
+            {t('It cannot be recovered or reset, so choose one you will remember.')}
           </Text>
           {!first ? (
             <View style={{ flexDirection: 'row', marginTop: spacing.lg }}>
               {[6, 8].map((n) => (
                 <Chip
                   key={n}
-                  label={`${n} digits`}
+                  label={t('{n} digits', { n })}
                   selected={length === n}
                   onPress={() => {
                     setLength(n);

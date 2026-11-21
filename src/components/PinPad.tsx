@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { colors, spacing, type } from '../theme/theme';
+import { t } from '../i18n';
 import type { IconName } from './ui';
 
 type Props = {
@@ -79,11 +80,11 @@ export function PinPad({ value, onChange, length, onComplete, disabled, errorSig
           <View key={i} style={[styles.dot, i < value.length && styles.dotFilled]} />
         ))}
       </Animated.View>
-      <View style={[styles.grid, { width: key * 3 + 48 }]}>
+      <View style={[styles.grid, { width: key * 3 + 48, direction: 'ltr' }]}>
         {KEYS.map((k) => {
           if (k === 'left' && !leftAction) return <View key={k} style={styles.key} />;
           const label =
-            k === 'del' ? 'Delete digit' : k === 'left' ? leftAction!.label : `Digit ${k}`;
+            k === 'del' ? t('Delete digit') : k === 'left' ? leftAction!.label : t('Digit {n}', { n: k });
           return (
             <Pressable
               key={k}

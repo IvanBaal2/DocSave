@@ -5,6 +5,7 @@ import { PinPad } from '../../../src/components/PinPad';
 import { Chip, Header, Screen, haptic } from '../../../src/components/ui';
 import { validatePin } from '../../../src/crypto/core';
 import { colors, spacing, type } from '../../../src/theme/theme';
+import { useI18n } from '../../../src/i18n';
 import { useVault } from '../../../src/vault/VaultContext';
 
 type Step = 'current' | 'new' | 'confirm';
@@ -12,6 +13,7 @@ type Step = 'current' | 'new' | 'confirm';
 export default function ChangePin() {
   const router = useRouter();
   const vault = useVault();
+  const { t } = useI18n();
   const [step, setStep] = useState<Step>('current');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -33,22 +35,22 @@ export default function ChangePin() {
       setBusy(true);
       const ok = await vault.verifyPin(pin).catch(() => false);
       setBusy(false);
-      if (!ok) return fail('Incorrect PIN.');
+      if (!ok) return fail(t('Incorrect PIN.'));
       setCurrent(pin);
       setValue('');
       return setStep('new');
     }
     if (step === 'new') {
       const problem = validatePin(pin);
-      if (problem) return fail(problem);
-      if (pin === current) return fail('Choose a different PIN.');
+      if (problem) return fail(t(problem));
+      if (pin === current) return fail(t('Choose a different PIN.'));
       setNext(pin);
       setValue('');
       return setStep('confirm');
     }
     if (pin !== next) {
       setStep('new');
-      return fail('PINs did not match. Enter the new PIN again.');
+      return fail(t('PINs did not match. Enter the new PIN again.'));
     }
     setBusy(true);
     try {
@@ -58,30 +60,30 @@ export default function ChangePin() {
       router.back();
     } catch {
       setBusy(false);
-      fail('The PIN could not be changed. Nothing was modified.');
+      fail(t('The PIN could not be changed. Nothing was modified.'));
       setStep('current');
     }
   }
 
   const titles: Record<Step, string> = {
-    current: 'Enter your current PIN',
-    new: `Choose a new ${length}-digit PIN`,
-    confirm: 'Confirm your new PIN',
+    current: t('Enter your current PIN'),
+    new: t('Choose a new {n}-digit PIN', { n: length }),
+    confirm: t('Confirm your new PIN'),
   };
 
   return (
     <Screen scroll={false}>
-      <Header title="Change PIN" />
+      <Header title={t('Change PIN')} />
       <View style={{ flex: 1, justifyContent: 'space-between', paddingBottom: spacing.xl }}>
         <View style={{ alignItems: 'center', paddingHorizontal: spacing.xl }}>
           <Text style={[type.h1, { textAlign: 'center' }]}>{titles[step]}</Text>
           <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.sm }]}>
-            Your documents are not re-encrypted: only the key that protects them is re-sealed with the new PIN.
+            {t('Your documents are not re-encrypted: only the key that protects them is re-sealed with the new PIN.')}
           </Text>
           {step === 'new' ? (
             <View style={{ flexDirection: 'row', marginTop: spacing.lg }}>
               {[6, 8].map((n) => (
-                <Chip key={n} label={`${n} digits`} selected={length === n} onPress={() => { setLength(n); setValue(''); }} />
+                <Chip key={n} label={t('{n} digits', { n })} selected={length === n} onPress={() => { setLength(n); setValue(''); }} />
               ))}
             </View>
           ) : null}

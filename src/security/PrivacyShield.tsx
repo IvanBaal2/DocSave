@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { AppState, Platform, StyleSheet, Text, View } from 'react-native';
 import { Logo } from '../components/ui';
 import { colors, spacing, type } from '../theme/theme';
+import { t } from '../i18n';
 import { useVault } from '../vault/VaultContext';
 
 const KEY = 'docsave-privacy';
@@ -43,7 +44,7 @@ export function PrivacyShield() {
   return (
     <View style={styles.shield} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <Logo size={48} />
-      <Text style={[type.caption, { marginTop: spacing.lg }]}>Content hidden for your privacy</Text>
+      <Text style={[type.caption, { marginTop: spacing.lg }]}>{t('Content hidden for your privacy')}</Text>
     </View>
   );
 }

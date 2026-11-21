@@ -5,6 +5,7 @@ import { colors, radius, spacing, type } from '../theme/theme';
 import { findCategory, findDocType, findDocTypeAny } from '../vault/categories';
 import type { CustomCategory, DocumentRecord } from '../vault/types';
 import { daysUntil, displayName, formatBytes, formatDate } from '../utils/format';
+import { t } from '../i18n';
 import type { IconName } from './ui';
 
 export function iconForDocument(doc: DocumentRecord): IconName {
@@ -29,7 +30,7 @@ export function ExpiryBadge({ date }: { date?: string }) {
   const d = daysUntil(date);
   if (d == null) return null;
   const tone = d < 0 ? colors.danger : d <= 30 ? colors.warning : d <= 180 ? colors.info : colors.textMuted;
-  const label = d < 0 ? 'Expired' : d === 0 ? 'Today' : d <= 180 ? `${d}d left` : formatDate(date);
+  const label = d < 0 ? t('Expired') : d === 0 ? t('Today') : d <= 180 ? t('{n} days left', { n: d }) : formatDate(date);
   return (
     <View style={[styles.badge, { borderColor: tone + '55', backgroundColor: tone + '18' }]}>
       <Text style={[type.caption, { color: tone, fontWeight: '600' }]}>{label}</Text>
@@ -59,18 +60,18 @@ export function DocumentCard({
       <View style={[styles.icon, { backgroundColor: (cat?.color ?? colors.primary) + '1F' }]}>
         <Ionicons name={iconForDocument(doc)} size={22} color={cat?.color ?? colors.primaryBright} />
       </View>
-      <View style={{ flex: 1, marginLeft: spacing.md }}>
+      <View style={{ flex: 1, marginStart: spacing.md }}>
         <Text style={type.h3} numberOfLines={1}>
           {displayName(doc.name)}
         </Text>
         <Text style={[type.caption, { marginTop: 3 }]} numberOfLines={1}>
-          {doc.description && doc.description !== (dt?.label ?? '')
-            ? doc.description.replace(`${dt?.label ?? ''} · `, '')
-            : `${dt?.label ?? cat?.name ?? 'Document'} · ${doc.pages.length} ${doc.pages.length === 1 ? 'page' : 'pages'} · ${formatBytes(size)}`}
+          {doc.description && doc.description !== (dt?.label ?? '') && doc.description !== t(dt?.label ?? '')
+            ? doc.description.replace(`${dt?.label ?? ''} · `, '').replace(`${t(dt?.label ?? '')} · `, '')
+            : `${t(dt?.label ?? cat?.name ?? 'Document')} · ${doc.pages.length === 1 ? t('1 page') : t('{n} pages', { n: doc.pages.length })} · ${formatBytes(size)}`}
         </Text>
       </View>
       <ExpiryBadge date={doc.expiryDate} />
-      <Ionicons name="lock-closed" size={13} color={colors.primary} style={{ marginLeft: spacing.sm }} />
+      <Ionicons name="lock-closed" size={13} color={colors.primary} style={{ marginStart: spacing.sm }} />
     </Pressable>
   );
 }
@@ -84,9 +85,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
-    paddingRight: spacing.lg,
+    paddingEnd: spacing.lg,
     marginBottom: spacing.sm,
   },
   icon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  badge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3, marginLeft: spacing.sm },
+  badge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3, marginStart: spacing.sm },
 });

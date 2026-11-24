@@ -36,6 +36,7 @@ import {
   unwrapKeyWithPin,
   wipe,
   wrapKeyWithPin,
+  wrapKeyWithPinVerifiable,
   type WrappedKey,
 } from '../crypto/core';
 import { DEFAULT_SETTINGS, type BioBinding, type Settings, type UnlockMode, type VaultMeta } from './types';
@@ -103,20 +104,6 @@ function describe(e: unknown): string {
  * opens it and yields the expected master key. Run after every write so a
  * vault can never be left protected by a PIN that does not open it.
  */
-async function assertPinOpens(storeKey: string, opts: SecureStore.SecureStoreOptions, pin: string, masterKey: Uint8Array) {
-  const raw = await SecureStore.getItemAsync(storeKey, opts);
-  if (!raw) throw new Error('The PIN key could not be read back from secure storage.');
-  let key: Uint8Array;
-  try {
-    key = await unwrapKeyWithPin(JSON.parse(raw) as WrappedKey, pin, b64);
-  } catch {
-    throw new Error('Self-check failed: the saved key does not open with this PIN. Nothing was changed.');
-  }
-  const same = key.length === masterKey.length && key.every((b, i) => b === masterKey[i]);
-  wipe(key);
-  if (!same) throw new Error('Self-check failed: the saved key does not match the vault key. Nothing was changed.');
-}
-
 // ── Meta & settings ──────────────────────────────────────────────────────────
 
 export async function readMeta(): Promise<VaultMeta | null> {
@@ -171,9 +158,7 @@ export async function createVaultKeys(params: {
     pinLength: params.pin.length,
   };
   try {
-    const wrapped = await wrapKeyWithPin(masterKey, params.pin, b64);
-    await SecureStore.setItemAsync(K.pin, JSON.stringify(wrapped), PLAIN);
-    await assertPinOpens(K.pin, PLAIN, params.pin, masterKey);
+    await writePinKeyVerified(masterKey, params.pin);
     await writeMeta(meta);
     await resetAttempts();
   } catch (e) {
@@ -182,8 +167,19 @@ export async function createVaultKeys(params: {
     throw new Error(`The secure key store refused to save the vault key: ${describe(e)}`);
   }
   if (params.unlockMode === 'pin') return { masterKey, meta };
+  if (params.unlockMode === 'pin_and_bio') {
+    // Legacy mode (no longer offered in the app): kept for older vaults and tests.
+    try {
+      return { masterKey, meta: await applyUnlockMode(masterKey, params.pin, meta, params.unlockMode) };
+    } catch (e) {
+      return { masterKey, meta, biometricError: describe(e) };
+    }
+  }
   try {
-    const updated = await applyUnlockMode(masterKey, params.pin, meta, params.unlockMode);
+    // The PIN key was just written and verified: only add face / fingerprint.
+    const binding = await storeBiometric(masterKey);
+    const updated: VaultMeta = { ...meta, unlockMode: 'pin_or_bio', bioBinding: binding };
+    await writeMeta(updated);
     return { masterKey, meta: updated };
   } catch (e) {
     return { masterKey, meta, biometricError: describe(e) };
@@ -204,13 +200,10 @@ export async function unlockWithPin(pin: string): Promise<Uint8Array> {
   const key = await unwrapKeyWithPin(wrapped, pin, b64);
   if (needsRewrap(wrapped)) {
     // Upgrade legacy / weaker key wrapping transparently (the PIN is correct here).
-    const old = JSON.stringify(wrapped);
     try {
-      await SecureStore.setItemAsync(K.pin, JSON.stringify(await wrapKeyWithPin(key, pin, b64)), PLAIN);
-      await assertPinOpens(K.pin, PLAIN, pin, key);
+      await writePinKeyVerified(key, pin); // restores the old wrapping if anything fails
     } catch {
       // Keep the old wrapping; unlocking still works.
-      await SecureStore.setItemAsync(K.pin, old, PLAIN).catch(() => {});
     }
   }
   return key;
@@ -297,10 +290,37 @@ export async function verifyPin(
 
 // ── Changing PIN / unlock mode ───────────────────────────────────────────────
 
+/**
+ * Writes the PIN-wrapped master key and proves the stored copy opens with this
+ * PIN (one PBKDF2 derivation). The previous key is restored if the check fails.
+ */
+async function writePinKeyVerified(masterKey: Uint8Array, pin: string): Promise<void> {
+  const w = await wrapKeyWithPinVerifiable(masterKey, pin, b64);
+  const previous = await SecureStore.getItemAsync(K.pin, PLAIN);
+  try {
+    await SecureStore.setItemAsync(K.pin, JSON.stringify(w.wrapped), PLAIN);
+    const raw = await SecureStore.getItemAsync(K.pin, PLAIN);
+    if (!raw) throw new Error('The PIN key could not be read back from secure storage.');
+    if (!w.verify(JSON.parse(raw) as WrappedKey)) {
+      throw new Error('Self-check failed: the saved key does not open with this PIN. Nothing was changed.');
+    }
+  } catch (e) {
+    if (previous) await SecureStore.setItemAsync(K.pin, previous, PLAIN);
+    throw e;
+  } finally {
+    w.dispose();
+  }
+}
+
 /** Stores the keys for a mode. Returns how biometrics are bound (if used). */
-async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode): Promise<BioBinding | undefined> {
-  const wrapped = JSON.stringify(await wrapKeyWithPin(masterKey, pin, b64));
+async function storeForMode(
+  masterKey: Uint8Array,
+  pin: string,
+  mode: UnlockMode,
+  rewrapPin = true,
+): Promise<BioBinding | undefined> {
   if (mode === 'pin_and_bio') {
+    const wrapped = JSON.stringify(await wrapKeyWithPin(masterKey, pin, b64));
     // Two-factor requires a hardware-bound biometric key; there is no fallback.
     try {
       await SecureStore.setItemAsync(K.pinBio, wrapped, bioOptions('Confirm to enable two-factor unlock'));
@@ -315,23 +335,20 @@ async function storeForMode(masterKey: Uint8Array, pin: string, mode: UnlockMode
     return 'hardware';
   }
 
-  // Keep the previous key until the new one is proven to open with this PIN.
-  const previous = await SecureStore.getItemAsync(K.pin, PLAIN);
-  await SecureStore.setItemAsync(K.pin, wrapped, PLAIN);
-  try {
-    await assertPinOpens(K.pin, PLAIN, pin, masterKey);
-  } catch (e) {
-    if (previous) await SecureStore.setItemAsync(K.pin, previous, PLAIN);
-    throw e;
-  }
+  // Only switching face / fingerprint on or off keeps the existing PIN key (no slow PBKDF2),
+  // unless there is none (vaults coming from two-factor mode).
+  if (rewrapPin || !(await SecureStore.getItemAsync(K.pin, PLAIN))) await writePinKeyVerified(masterKey, pin);
   await safeDelete(K.pinBio, bioOptions(t(BIO_PROMPT)));
   if (mode === 'pin') {
     await safeDelete(K.bio, bioOptions(t(BIO_PROMPT)));
     await safeDelete(K.bioSoft, PLAIN);
     return undefined;
   }
+  return storeBiometric(masterKey);
+}
 
-  // mode === 'pin_or_bio'
+/** Face / fingerprint key: hardware-bound when the phone allows it, else OS check + Keystore key. */
+async function storeBiometric(masterKey: Uint8Array): Promise<BioBinding> {
   try {
     await SecureStore.setItemAsync(K.bio, b64.encode(masterKey), bioOptions('Confirm to enable biometric unlock'));
     await safeDelete(K.bioSoft, PLAIN);
@@ -369,8 +386,9 @@ export async function applyUnlockMode(
   pin: string,
   meta: VaultMeta,
   mode: UnlockMode,
+  rewrapPin = true,
 ): Promise<VaultMeta> {
-  const binding = await storeForMode(masterKey, pin, mode);
+  const binding = await storeForMode(masterKey, pin, mode, rewrapPin);
   const updated: VaultMeta = { ...meta, unlockMode: mode, pinLength: pin.length, bioBinding: binding };
   await writeMeta(updated);
   return updated;

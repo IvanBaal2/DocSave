@@ -43,7 +43,7 @@ export default function LockScreen() {
   useEffect(() => {
     if (autoPrompted.current || mode === 'pin' || !vault.biometrics.enrolled || lockedOut) return;
     autoPrompted.current = true;
-    const timer = setTimeout(tryBiometrics, 350);
+    const timer = setTimeout(tryBiometrics, 120); // just enough for the screen to appear first
     return () => clearTimeout(timer);
   }, [mode, vault.biometrics.enrolled, lockedOut, tryBiometrics]);
 

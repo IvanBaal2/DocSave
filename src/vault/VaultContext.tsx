@@ -592,7 +592,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const setUnlockMode = useCallback(async (mode: UnlockMode, pin: string, verified = false) => {
     if (!verified && !(await verifyPin(pin))) return false;
-    const m = await runExternal(() => Keys.applyUnlockMode(requireKey(), pin, metaRef.current!, mode));
+    // The PIN is unchanged and was just verified: keep its key, only switch face / fingerprint.
+    const m = await runExternal(() => Keys.applyUnlockMode(requireKey(), pin, metaRef.current!, mode, false));
     twoFactorWrapped.current = null;
     setMeta(m);
     return true;

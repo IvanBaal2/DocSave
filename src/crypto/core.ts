@@ -259,6 +259,50 @@ export async function wrapKeyWithPin(
 }
 
 /** True when a wrapped key uses an older or weaker format and should be re-wrapped. */
+/**
+ * Wraps the master key and keeps the derived PIN key in memory just long
+ * enough to check the stored copy (`verify`), so the slow PBKDF2 step runs
+ * once instead of twice. Always call `dispose` (it wipes the derived key).
+ */
+export async function wrapKeyWithPinVerifiable(
+  masterKey: Uint8Array,
+  pin: string,
+  b64: B64,
+  iterations: number = PBKDF2_ITERATIONS,
+): Promise<{ wrapped: WrappedKeyV2; verify: (stored: WrappedKey) => boolean; dispose: () => void }> {
+  assertKey(masterKey);
+  const salt = randomBytes(16);
+  const kek = await deriveKekV2(pin, salt, iterations, b64);
+  const nonce = randomBytes(NONCE_BYTES);
+  const ct = gcm(kek, nonce, WRAP_AAD).encrypt(masterKey);
+  const wrapped: WrappedKeyV2 = {
+    v: 2,
+    kdf: 'pbkdf2-sha256',
+    iter: iterations,
+    salt: b64.encode(salt),
+    nonce: b64.encode(nonce),
+    ct: b64.encode(ct),
+  };
+  return {
+    wrapped,
+    verify(stored) {
+      // Same salt and rounds as written means this PIN derives exactly this key.
+      if (stored?.v !== 2 || stored.kdf !== 'pbkdf2-sha256' || stored.salt !== wrapped.salt || stored.iter !== iterations) return false;
+      try {
+        const key = gcm(kek, b64.decode(stored.nonce), WRAP_AAD).decrypt(b64.decode(stored.ct));
+        const same = constantTimeEqual(key, masterKey);
+        wipe(key);
+        return same;
+      } catch {
+        return false;
+      }
+    },
+    dispose() {
+      wipe(kek);
+    },
+  };
+}
+
 export function needsRewrap(w: WrappedKey): boolean {
   return w.v !== 2 || w.iter < PBKDF2_ITERATIONS;
 }

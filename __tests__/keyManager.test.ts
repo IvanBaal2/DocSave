@@ -44,6 +44,7 @@ jest.mock('../src/crypto/core', () => {
   return {
     ...actual,
     wrapKeyWithPin: (k: Uint8Array, pin: string, b64: unknown) => actual.wrapKeyWithPin(k, pin, b64, 100_000),
+    wrapKeyWithPinVerifiable: (k: Uint8Array, pin: string, b64: unknown) => actual.wrapKeyWithPinVerifiable(k, pin, b64, 100_000),
   };
 });
 
@@ -193,6 +194,26 @@ describe('real PBKDF2 provider (like the native module)', () => {
     ),
   );
   afterAll(() => setPbkdf2Provider(null));
+
+  test('creating a vault with face / fingerprint runs the slow PIN derivation only once', async () => {
+    let calls = 0;
+    setPbkdf2Provider(async (pin: string, salt: string, iter: number, len: number) => {
+      calls++;
+      return pbkdf2Sync(pin, Buffer.from(salt, 'base64'), iter, len, 'sha256').toString('base64');
+    });
+    const { masterKey, meta } = await Keys.createVaultKeys({ vaultId: 'v1', pin: '482915', unlockMode: 'pin_or_bio' });
+    expect(meta.unlockMode).toBe('pin_or_bio');
+    expect(calls).toBe(1);
+    // switching face / fingerprint off and on keeps the PIN key: no derivation at all
+    calls = 0;
+    const off = await Keys.applyUnlockMode(masterKey, '482915', meta, 'pin', false);
+    await Keys.applyUnlockMode(masterKey, '482915', off, 'pin_or_bio', false);
+    expect(calls).toBe(0);
+    expect(eq(await Keys.unlockWithPin('482915'), masterKey)).toBe(true);
+    setPbkdf2Provider(async (pin: string, salt: string, iter: number, len: number) =>
+      pbkdf2Sync(pin, Buffer.from(salt, 'base64'), iter, len, 'sha256').toString('base64'),
+    );
+  });
 
   test('create → lock → unlock with the same PIN, repeatedly, across mode changes', async () => {
     const { masterKey, meta } = await Keys.createVaultKeys({ vaultId: 'v1', pin: '482915', unlockMode: 'pin' });

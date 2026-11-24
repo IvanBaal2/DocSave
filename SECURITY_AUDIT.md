@@ -13,7 +13,7 @@ This is an internal engineering audit, not a certification. An independent penet
 | F4 | **Placeholder launch screen.** The Expo default splash (white grid) appeared at launch because SDK 58 ignores the legacy `splash` key. | Low (appearance) | **Fixed** with the `expo-splash-screen` plugin and the Docsave artwork. |
 | F5 | Release builds included the Expo development launcher module configuration. | Low | **Fixed.** `expo-dev-client` is only configured for development builds. |
 | F6 | Root detection executed a shell command (`which su`). Running shell commands is a pattern that security scanners flag. | Low | **Fixed.** Only file and system-property checks remain. |
-| F7 | **Anonymous signing certificate.** The keystore Expo generated in the cloud has an empty subject (`CN=, O=, C=`). It is cryptographically valid, but some device scanners treat apps from unidentified signers as "unknown". | Medium (trust) | **Open — recommendation below.** |
+| F7 | **Anonymous signing certificate.** The keystore Expo generated in the cloud has an empty subject (`CN=, O=, C=`). It is cryptographically valid, but some device scanners treat apps from unidentified signers as "unknown". | Medium (trust) | **Fixed (24 Nov 2026).** New upload key `CN=Ivan Baal, O=Docsave` (RSA-4096, SHA-256 fingerprint C2:1E:1B:53:…:FF:12), used for APK and AAB builds via `credentials.json` (kept out of git). |
 | F8 | npm audit: 3 moderate findings, all one advisory: `minimatch` ReDoS (GHSA-g3hv-75wg-m249) via `@expo/fingerprint`. | Low | **Accepted.** Build-time tool only; not included in the app bundle. Will be resolved by a future Expo update. |
 
 ## 2. The Huawei "Threat detected" warning

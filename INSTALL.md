@@ -47,3 +47,16 @@ Native code (OCR, crypto) only runs in a development or release build, not in Ex
 ```powershell
 npx expo run:android
 ```
+
+## Signing key (keep it safe)
+
+Builds are signed with the upload key in `credentials/docsave-upload.jks`; its
+passwords are in `credentials.json`. Both are deliberately **not** in git.
+
+- Keep a backup of both files somewhere safe (for example an encrypted USB
+  drive or a password manager). Without them, sideloaded installs cannot be
+  updated and Google Play needs an upload-key reset.
+- Never share them or commit them.
+- Owner: `CN=Ivan Baal, O=Docsave` · SHA-256: `C2:1E:1B:53:BC:B6:11:56:8A:14:95:87:88:8D:E1:B6:8F:91:8A:91:75:F2:B6:A1:07:9F:40:EC:1B:47:FF:12`
+- Apps signed with the earlier anonymous Expo key cannot be updated in place:
+  uninstall them first (this deletes the vault on that phone).

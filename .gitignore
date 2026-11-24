@@ -12,3 +12,6 @@ assets/pdfjs/*.txt
 *.p8
 *.p12
 *.mobileprovision
+
+credentials.json
+credentials/

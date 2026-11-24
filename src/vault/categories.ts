@@ -271,10 +271,9 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
     "name": "Cards",
     "icon": "card-outline",
     "color": "#F472B6",
-    "description": "Bank, membership, loyalty and gift cards",
+    "description": "Membership, loyalty and gift cards",
     "builtIn": true,
     "types": [
-      { "id": "bank_card", "label": "Bank Card", "icon": "card-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "generic-card", "hint": "Stored as an image only" },
       { "id": "membership_card", "label": "Membership Card", "icon": "people-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "loyalty", "hint": "Gym, club or association card" },
       { "id": "loyalty_card", "label": "Loyalty Card", "icon": "ribbon-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "loyalty", "hint": "Reads the barcode automatically" },
       { "id": "gift_card", "label": "Gift Card", "icon": "gift-outline", "slots": ["Front", "Back"], "optionalFrom": 1, "frame": "card", "kind": "giftcard", "hint": "Card number, PIN and value" }
@@ -360,22 +359,11 @@ export const BUILT_IN_CATEGORIES: CategoryDef[] = [
         "multiPage": true
       }
     ]
-  },
-  {
-    "id": "photos",
-    "name": "General Photos",
-    "icon": "image-outline",
-    "color": "#38BDF8",
-    "description": "Ordinary photos that are not documents",
-    "builtIn": true,
-    "types": [
-      { "id": "photo", "label": "Photo", "icon": "image-outline", "slots": ["Photo"], "frame": "photo", "kind": "photo", "hint": "Any picture; nothing is read from it", "multiPage": true }
-    ]
   }
 ];
 
-/** Older vaults used one combined "Cards & Coupons" category. */
-const LEGACY_CATEGORY: Record<string, string> = { wallet: 'cards' };
+/** Older vaults: "Cards & Coupons" became Cards; "General Photos" was folded into Other Documents. */
+const LEGACY_CATEGORY: Record<string, string> = { wallet: 'cards', photos: 'other' };
 
 /** Generic scan settings used for custom folders. */
 export const GENERIC_TYPE: DocTypeDef = {

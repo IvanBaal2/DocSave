@@ -59,6 +59,14 @@ export function similarity(a: string[], b: string[]): number {
   return inter / (A.size + B.size - inter);
 }
 
+/**
+ * Whether a captured picture looks like a document: at least two lines of real
+ * text (three or more letters or digits). Used to refuse ordinary photos.
+ */
+export function looksLikeDocument(lines: string[]): boolean {
+  return lines.filter((l) => l.replace(/[^A-Za-z0-9À-ɏ؀-ۿ]/g, '').length >= 3).length >= 2;
+}
+
 export type Readiness = { ready: boolean; message: string; reason?: 'mrz' | 'fields' | 'barcode' | 'stable' };
 
 const MIN_LINES: Record<ScanKind, number> = {

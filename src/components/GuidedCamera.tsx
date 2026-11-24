@@ -4,15 +4,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { cropJpeg, isNativeSecurityAvailable, recognizeBest, recognizeText, rotateJpeg } from '../../modules/docsave-security';
-import { FRAME_ASPECT, assessSnapshot, screenRectToPhoto, type Rect } from '../scan/capture';
+import { FRAME_ASPECT, assessSnapshot, looksLikeDocument, screenRectToPhoto, type Rect } from '../scan/capture';
 import { parseBcbp } from '../scan/extract';
 import { deleteTempFile } from '../security/secureTemp';
 import { colors, spacing, type } from '../theme/theme';
 import type { DocTypeDef } from '../vault/categories';
 import { CameraPermissionScreen, useCameraAccess } from './CameraPermission';
-import { PageEditor } from './PageEditor';
-import { FULL_QUAD, rectToQuad } from '../scan/geometry';
-import type { Quad } from '../../modules/docsave-security';
 import { tLabel, useI18n } from '../i18n';
 import { Button, haptic } from './ui';
 
@@ -80,10 +77,7 @@ export function GuidedCamera({
   const [pictureSize, setPictureSize] = useState<string | undefined>();
   const [portrait, setPortrait] = useState(!!docType.portrait);
   const [facing, setFacing] = useState<'back' | 'front'>('back');
-  // Photo waiting for the user to accept, retake or adjust it.
-  const [review, setReview] = useState<{ b64: string; w: number; h: number; quad: Quad } | null>(null);
   const [round, setRound] = useState(0);
-  const isPhoto = docType.kind === 'photo';
   // Flash: off while previewing; automatic (fires only when it is dark) for the final photo.
   const [flash, setFlash] = useState<'off' | 'auto'>('off');
   const wallet = WALLET_KINDS.has(docType.kind);
@@ -92,7 +86,7 @@ export function GuidedCamera({
   const barcodeRef = useRef<string | undefined>(undefined);
   const pulse = useRef(new Animated.Value(0)).current;
   const autoCapture = isNativeSecurityAvailable;
-  const autoScan = autoCapture && !isPhoto;
+  const autoScan = autoCapture;
 
   // Guide frame geometry in screen coordinates.
   const frame: Rect | null = (() => {
@@ -133,36 +127,16 @@ export function GuidedCamera({
         setFlash('auto');
         await sleep(120);
       }
-      const photo = await cam.current.takePictureAsync({ quality: 0.9, base64: true, exif: false, shutterSound: false });
+      const photo = await cam.current.takePictureAsync({ quality: 0.85, base64: true, exif: false, shutterSound: false });
       setFlash('off');
       deleteTempFile(photo?.uri);
       if (!photo?.base64) throw new Error('No image');
-      // Keep the whole original (upright, size-limited); the user decides how to crop it.
-      const original = await cropJpeg(photo.base64, { x: 0, y: 0, w: 1, h: 1 }, 0.92, 3200);
-      const size = await new Promise<{ w: number; h: number }>((resolve) =>
-        Image.getSize(
-          `data:image/jpeg;base64,${original}`,
-          (w, h) => resolve({ w, h }),
-          () => resolve({ w: photo.width, h: photo.height }),
-        ),
-      );
       const f = frameRef.current;
       const l = layoutRef.current;
-      const quad = f && l ? rectToQuad(screenRectToPhoto(f, l, { width: size.w, height: size.h }, 0.03)) : FULL_QUAD;
-      haptic.success();
-      setReview({ b64: original, w: size.w, h: size.h, quad });
-      setCapturing(false);
-    } catch {
-      setHint('Capture failed, try again');
-      capturingRef.current = false;
-      setCapturing(false);
-    }
-  }, [torch, facing]);
-
-  /** The user accepted the (possibly adjusted) photo: read it on the device, then hand it over. */
-  const acceptReviewed = useCallback(
-    async (finalB64: string) => {
-      let base64 = finalB64;
+      let base64 =
+        f && l
+          ? await cropJpeg(photo.base64, screenRectToPhoto(f, l, { width: photo.width, height: photo.height }, 0.06), 0.9, 3200)
+          : photo.base64;
       let lines: string[] = [];
       let ocrError: string | undefined;
       if (autoScan) {
@@ -171,25 +145,31 @@ export function GuidedCamera({
           lines = best.lines.map((x) => x.text);
           if (best.rotation) base64 = await rotateJpeg(base64, best.rotation);
         } catch (e) {
-          // Reading failed: the photo is still saved; details can be typed in.
+          // Reading failed on this phone: the photo cannot be checked, so it is kept.
           ocrError = (e as Error)?.message || t('Text recognition failed');
         }
+        // Only documents are saved: a picture with no readable text and no barcode is refused.
+        if (!ocrError && !barcodeRef.current && !looksLikeDocument(lines)) {
+          haptic.error();
+          setHint('No document found. Place the document inside the frame and try again.');
+          capturingRef.current = false;
+          setCapturing(false);
+          setRound((r) => r + 1); // restart automatic capture
+          return;
+        }
       }
+      haptic.success();
       onCaptured({ base64, lines, barcode: barcodeRef.current, ocrError });
-    },
-    [autoScan, onCaptured, t],
-  );
-
-  const retake = useCallback(() => {
-    setReview(null);
-    barcodeRef.current = undefined;
-    capturingRef.current = false;
-    setRound((r) => r + 1); // restart automatic capture
-  }, []);
+    } catch {
+      setHint('Capture failed, try again');
+      capturingRef.current = false;
+      setCapturing(false);
+    }
+  }, [autoScan, onCaptured, torch, facing, t]);
 
   // Auto-capture loop.
   useEffect(() => {
-    if (!cameraReady || camAccess.access !== 'granted' || !autoScan || review) return;
+    if (!cameraReady || camAccess.access !== 'granted' || !autoScan) return;
     let cancelled = false;
     let previous: string[] | null = null;
     const started = Date.now();
@@ -233,7 +213,7 @@ export function GuidedCamera({
     return () => {
       cancelled = true;
     };
-  }, [cameraReady, camAccess.access, autoScan, docType.kind, sideIndex, captureFull, review, round]);
+  }, [cameraReady, camAccess.access, autoScan, docType.kind, sideIndex, captureFull, round]);
 
   const onBarcode = useCallback(
     (e: BarcodeScanningResult) => {
@@ -274,20 +254,6 @@ export function GuidedCamera({
         onOpenSettings={camAccess.openSettings}
         onImport={onImport}
         onCancel={onClose}
-      />
-    );
-  }
-
-  if (review) {
-    return (
-      <PageEditor
-        base64={review.b64}
-        width={review.w}
-        height={review.h}
-        initialQuad={review.quad}
-        enhanceByDefault={!isPhoto}
-        onAccept={acceptReviewed}
-        onRetake={retake}
       />
     );
   }

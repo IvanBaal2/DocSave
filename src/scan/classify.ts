@@ -2,10 +2,12 @@
  * Suggests a category and document type for an imported or captured file.
  *
  * Uses only what is really there: text read on the device, a decoded barcode
- * and the file name. It never invents document details, never rejects a file,
- * and falls back to "Other Documents" (files with text) or "General Photos"
- * (pictures without readable text). The user can always change the result.
+ * and the file name. It never invents document details, never rejects a real document,
+ * and falls back to "Other Documents". Pictures with no document text are
+ * marked `notDocument` (Docsave keeps documents only). The user can always
+ * change the category.
  */
+import { looksLikeDocument } from './capture';
 import { findMrz, parseBcbp } from './extract';
 
 export type Classification = {
@@ -13,6 +15,8 @@ export type Classification = {
   docType: string;
   /** true when the decision is based on clear evidence (MRZ, barcode, keywords). */
   confident: boolean;
+  /** A picture with no document text: Docsave stores documents only, so it is not saved. */
+  notDocument?: boolean;
 };
 
 const fold = (s: string) =>
@@ -53,16 +57,12 @@ const RULES: Rule[] = [
   { re: /(coupon|cupon|promo code|discount code|% off|descuento|code promo|rabatt)/, categoryId: 'coupons', docType: 'coupon' },
   { re: /(membership|member card|socio|adherent|mitglied)/, categoryId: 'cards', docType: 'membership_card' },
   { re: /(loyalty|fidelidad|fidelite|treuekarte|punti)/, categoryId: 'cards', docType: 'loyalty_card' },
-  { re: /(mastercard|debit card|credit card|tarjeta de (credito|debito)|carte bancaire|maestro)/, categoryId: 'cards', docType: 'bank_card' },
   {
     re: /(receipt|recibo|ticket de caisse|quittung|kassenbon|ricevuta|scontrino|invoice|factura|facture|rechnung|fattura|\biva\b|\bvat\b)/,
     categoryId: 'receipts',
     docType: 'receipt',
   },
 ];
-
-/** At least this many readable lines make a picture count as a document. */
-const DOCUMENT_TEXT_LINES = 4;
 
 export function classify(input: { lines: string[]; barcode?: string; fileName?: string; mimeType: string }): Classification {
   const { lines, barcode, fileName, mimeType } = input;
@@ -82,9 +82,8 @@ export function classify(input: { lines: string[]; barcode?: string; fileName?: 
   if (/\btotal\b[^\n]*\d+[.,]\d{2}/.test(text)) return { categoryId: 'receipts', docType: 'receipt', confident: true };
 
   if (mimeType === 'application/pdf') return { categoryId: 'other', docType: 'pdf', confident: false };
-  const readable = lines.filter((l) => l.replace(/[^A-Za-z0-9À-ÿ؀-ۿ]/g, '').length >= 3).length;
-  if (mimeType.startsWith('image/') && readable < DOCUMENT_TEXT_LINES) {
-    return { categoryId: 'photos', docType: 'photo', confident: false };
+  if (mimeType.startsWith('image/') && !looksLikeDocument(lines)) {
+    return { categoryId: 'other', docType: 'other', confident: false, notDocument: true };
   }
   return { categoryId: 'other', docType: 'other', confident: false };
 }

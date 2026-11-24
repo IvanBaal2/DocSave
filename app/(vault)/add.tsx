@@ -13,7 +13,7 @@ export default function ChooseDocumentType() {
   const router = useRouter();
   const { categoryId } = useLocalSearchParams<{ categoryId?: string }>();
   const { index } = useVault();
-  const { t: tr } = useI18n();
+  const { t: tr, forward } = useI18n();
 
   // Custom folders have no predefined types: go straight to scanning.
   useEffect(() => {
@@ -47,12 +47,22 @@ export default function ChooseDocumentType() {
   return (
     <Screen>
       <Header title={tr('Add document')} subtitle={tr('Choose what you want to save')} />
-      <View style={styles.banner}>
-        <Ionicons name="scan" size={20} color={colors.primaryBright} />
-        <Text style={[type.bodySecondary, { flex: 1, marginStart: spacing.md }]}>
-          {tr('Pick a type and the camera opens with the right guide. Docsave captures it automatically and reads the details on this device.')}
-        </Text>
-      </View>
+      <Text style={[type.bodySecondary, { marginBottom: spacing.md }]}>
+        {tr('Pick a type and the camera opens with the right guide. Docsave captures it automatically and reads the details on this device.')}
+      </Text>
+      {/* Documents that already exist as a file or photo */}
+      <Pressable
+        onPress={() => router.push('/import')}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.banner, pressed && { backgroundColor: colors.surfacePressed }]}
+      >
+        <Ionicons name="folder-open-outline" size={22} color={colors.primaryBright} />
+        <View style={{ flex: 1, marginStart: spacing.md }}>
+          <Text style={type.h3}>{tr('Already have it as a file or photo?')}</Text>
+          <Text style={[type.caption, { marginTop: 2 }]}>{tr('Import PDFs, scans and photos of documents')}</Text>
+        </View>
+        <Ionicons name={forward} size={18} color={colors.textMuted} />
+      </Pressable>
 
       {groups.map((cat, gi) => (
         <View key={cat.id}>
@@ -72,11 +82,11 @@ export default function ChooseDocumentType() {
                   <Text style={[type.h3, { marginTop: spacing.md }]} numberOfLines={2}>
                     {tr(t.label)}
                   </Text>
-                  <Text style={[type.caption, { marginTop: 4 }]} numberOfLines={2}>
+                  <Text style={[type.caption, { marginTop: 4 }]} numberOfLines={2} ellipsizeMode="tail">
                     {tr(t.hint)}
                   </Text>
                   {t.slots.length > 1 ? (
-                    <View style={styles.sides}>
+                    <View style={[styles.sides, { marginTop: 'auto' }]}>
                       <Ionicons name="swap-horizontal" size={11} color={colors.textSecondary} />
                       <Text style={[type.caption, { marginStart: 4, fontSize: 11 }]}>{t.slots.map((s) => tr(s)).join(' + ')}</Text>
                     </View>
@@ -110,7 +120,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
-    minHeight: 150,
+    // Every tile has the same size, whatever its text.
+    height: 176,
+    overflow: 'hidden',
   },
   icon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   sides: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm },

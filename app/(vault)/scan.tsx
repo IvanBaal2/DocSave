@@ -13,6 +13,7 @@ import { colors, radius, spacing, type } from '../../src/theme/theme';
 import { GENERIC_TYPE, findCategory, findDocTypeAny } from '../../src/vault/categories';
 import type { DocField, PendingPage } from '../../src/vault/types';
 import { useVault } from '../../src/vault/VaultContext';
+import { looksLikeDocument } from '../../src/scan/capture';
 import { tLabel, useI18n } from '../../src/i18n';
 import { formatBytes } from '../../src/utils/format';
 
@@ -152,6 +153,12 @@ export default function ScanDocument() {
         } catch (e) {
           ocrError = (e as Error)?.message || t('Text recognition failed');
         }
+      }
+      // Docsave keeps documents only: a picture with no document text is not added.
+      if (picked.base64 && picked.mimeType.startsWith('image/') && isNativeSecurityAvailable && !ocrError && !looksLikeDocument(lines)) {
+        setError(t('This picture does not look like a document, so it will not be saved.'));
+        setPhase(pages.length ? 'review' : 'camera');
+        return;
       }
       const list = sortPages([...pages.filter((p) => p.label !== label), { ...picked, lines, ocrError }]);
       setPages(list);

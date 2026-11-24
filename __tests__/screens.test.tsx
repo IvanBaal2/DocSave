@@ -418,7 +418,7 @@ describe('import files', () => {
     expect(screen.getByDisplayValue('Boarding pass MAD-LHR')).toBeTruthy();
     expect(screen.getByText('Recognised as Boarding Pass')).toBeTruthy();
     expect(screen.getByDisplayValue('notes 2026')).toBeTruthy();
-    expect(screen.getByText(/Not recognised. Saved under Other Documents/)).toBeTruthy();
+    expect(screen.getByText(/Choose what it is below/)).toBeTruthy();
     expect(screen.getByText(/This file type is not supported/)).toBeTruthy();
     const { fireEvent } = require('@testing-library/react-native');
     await act(async () => {
@@ -429,14 +429,14 @@ describe('import files', () => {
     expect(mockVault.addDocument.mock.calls[1][0]).toMatchObject({ categoryId: 'other', docType: 'pdf' });
     expect(mockVault.addDocument.mock.calls[0][0].pages[0]).toMatchObject({ fileName: 'Boarding pass MAD-LHR.pdf', sha256: expect.any(String) });
   });
-  test('an ordinary photo is accepted as a general photo', async () => {
+  test('an ordinary photo (no document text) is refused', async () => {
     mockPickedPhotos.current = [{ uri: 'file:///cache/IMG_1.jpg', fileName: 'IMG_1.jpg', mimeType: 'image/png', base64: PNG_1PX }];
     await renderScreen(() => require('../app/(vault)/import'), { source: 'photos' });
     await act(async () => {
       await new Promise((r) => setTimeout(r, 50));
     });
-    expect(screen.getByText(/Saved as a general photo/)).toBeTruthy();
-    expect(screen.getAllByText('General Photos').length).toBeGreaterThan(0);
+    expect(screen.getByText(/does not look like a document, so it will not be saved/)).toBeTruthy();
+    expect(screen.queryByText(/Encrypt & save/)).toBeNull();
   });
 });
 
@@ -447,11 +447,15 @@ describe('removed features', () => {
     await renderScreen(() => require('../app/(vault)/settings/security'), { section: 'unlock' });
     expect(screen.queryByText(/two-factor/i)).toBeNull();
   });
-  test('home has camera and import entry points', async () => {
+  test('home has no separate import buttons; import lives in Add document', async () => {
     await renderScreen(() => require('../app/(vault)/index'));
     expect(screen.getByText('Add Document')).toBeTruthy();
-    expect(screen.getByText('Import files')).toBeTruthy();
-    expect(screen.getByText('Import photos')).toBeTruthy();
+    expect(screen.queryByText('Import files')).toBeNull();
+    expect(screen.queryByText('Import photos')).toBeNull();
+    await renderScreen(() => require('../app/(vault)/add'));
+    expect(screen.getByText('Already have it as a file or photo?')).toBeTruthy();
+    expect(screen.queryByText('Bank Card')).toBeNull();
+    expect(screen.queryByText('Photo')).toBeNull();
   });
 });
 

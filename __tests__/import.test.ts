@@ -11,7 +11,7 @@ jest.mock('expo-image-picker', () => ({
 import { classify } from '../src/scan/classify';
 import { extract, extractReceipt } from '../src/scan/extract';
 import { contentProblem, fileProblem, nameFromFile } from '../src/security/importers';
-import { FULL_QUAD, rectToQuad, rotateQuad } from '../src/scan/geometry';
+import { looksLikeDocument } from '../src/scan/capture';
 import { BUILT_IN_CATEGORIES, findCategory, findDocType } from '../src/vault/categories';
 
 const TD3 = [
@@ -20,7 +20,7 @@ const TD3 = [
 ];
 
 describe('categories', () => {
-  test('the eight requested categories exist', () => {
+  test('the document categories (no general photos)', () => {
     expect(BUILT_IN_CATEGORIES.map((c) => c.id)).toEqual([
       'identity',
       'travel',
@@ -29,7 +29,6 @@ describe('categories', () => {
       'coupons',
       'receipts',
       'other',
-      'photos',
     ]);
   });
   test('documents saved under the old "Cards & Coupons" category still resolve', () => {
@@ -37,6 +36,8 @@ describe('categories', () => {
     expect(findDocType('wallet', 'coupon')?.id).toBe('coupon');
     // receipts moved out of "Other"
     expect(findDocType('other', 'receipt')?.id).toBe('receipt');
+    // General Photos was folded into Other Documents
+    expect(findCategory('photos', [])?.id).toBe('other');
   });
 });
 
@@ -59,9 +60,10 @@ describe('classification', () => {
     expect(classify({ lines: [], fileName: 'Boarding pass MAD-LHR.pdf', mimeType: 'application/pdf' }).docType).toBe('boarding_pass');
     expect(classify({ lines: [], fileName: 'Contrato alquiler.pdf', mimeType: 'application/pdf' }).docType).toBe('contract');
   });
-  test('an ordinary photo is never forced into a document type', () => {
-    expect(img([])).toEqual({ categoryId: 'photos', docType: 'photo', confident: false });
-    expect(img(['OK'])).toMatchObject({ categoryId: 'photos' });
+  test('an ordinary photo is marked as not a document', () => {
+    expect(img([])).toEqual({ categoryId: 'other', docType: 'other', confident: false, notDocument: true });
+    expect(img(['OK'])).toMatchObject({ notDocument: true });
+    expect(classify({ lines: [], fileName: 'scan.pdf', mimeType: 'application/pdf' }).notDocument).toBeUndefined();
   });
   test('unrecognised documents go to Other Documents', () => {
     expect(classify({ lines: [], fileName: 'scan001.pdf', mimeType: 'application/pdf' })).toMatchObject({ categoryId: 'other', docType: 'pdf', confident: false });
@@ -112,17 +114,14 @@ describe('file validation', () => {
   });
 });
 
-describe('crop geometry', () => {
-  test('rectangle to corners', () => {
-    expect(rectToQuad({ x: 0.1, y: 0.2, w: 0.5, h: 0.4 })).toEqual([0.1, 0.2, 0.6, 0.2, 0.6, 0.6000000000000001, 0.1, 0.6000000000000001]);
+describe('camera refuses pictures that are not documents', () => {
+  test('two or more lines of real text count as a document', () => {
+    expect(looksLikeDocument(['REPUBLIC OF THE PHILIPPINES', 'STUDENT ID 2026-0042'])).toBe(true);
+    expect(looksLikeDocument(['ACME Corp', 'Employee', 'Ana Cruz'])).toBe(true);
   });
-  test('rotating four times returns the same corners', () => {
-    const q = rectToQuad({ x: 0.1, y: 0.2, w: 0.5, h: 0.4 });
-    let r = q;
-    for (let i = 0; i < 4; i++) r = rotateQuad(r);
-    r.forEach((v, i) => expect(v).toBeCloseTo(q[i]));
-  });
-  test('the whole photo stays the whole photo after rotating', () => {
-    expect(rotateQuad(FULL_QUAD)).toEqual(FULL_QUAD);
+  test('a photo with no text, or only a word, is not a document', () => {
+    expect(looksLikeDocument([])).toBe(false);
+    expect(looksLikeDocument(['OK'])).toBe(false);
+    expect(looksLikeDocument(['STOP', '..'])).toBe(false);
   });
 });

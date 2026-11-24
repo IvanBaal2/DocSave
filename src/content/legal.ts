@@ -3,7 +3,7 @@
  *
  * Publisher details as provided by the publisher (individual developer, Pili,
  * Camarines Sur, Philippines). The texts describe the implemented app; they
- * have not been reviewed by a lawyer (see compliance/RELEASE_DASHBOARD.md).
+ * were not reviewed by a lawyer; the publisher waived that review.
  * Bump the version whenever the text changes: the app records which version
  * the user accepted and when.
  */

@@ -14,7 +14,7 @@ Nothing below may be invented. Each item blocks release until it is supplied, an
 | 8 | **Support response-time commitment** | Terms §18 | |
 | 9 | **Minimum age** policy | Terms §3 | Spain: 14 for consent under LOPDGDD art. 7 (no consent-based processing occurs in-app; confirm with a lawyer). |
 | 10 | **Logo ownership**: confirm you created or licensed `assets/brand` artwork | LICENCES.md | Provide a licence if it came from a designer or a generator with terms. |
-| 11 | **Lawyer review** of the Privacy Policy and Terms | Release dashboard rows 2–4 | |
+| 11 | ~~Lawyer review~~ | Waived by the publisher on 24 Nov 2026 | |
 | 12 | **Export-compliance decision** (iOS) | EXPORT_COMPLIANCE.md | |
 | 13 | **Upload keystore with a named DN** (audit F7) | Google Play / sideload trust | `eas credentials` |
 | 14 | **Apple Developer and Google Play developer accounts** | Store submission | |

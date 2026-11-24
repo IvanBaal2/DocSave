@@ -89,3 +89,43 @@ describe('secure viewer HTML', () => {
     expect(html).not.toContain('<script>x</script>');
   });
 });
+
+describe('Google Play permissions', () => {
+  function androidConfig(profile?: string) {
+    const prev = process.env.DOCSAVE_PROFILE;
+    if (profile) process.env.DOCSAVE_PROFILE = profile;
+    else delete process.env.DOCSAVE_PROFILE;
+    jest.resetModules();
+    const cfg = require('../app.config.js').expo.android;
+    if (prev === undefined) delete process.env.DOCSAVE_PROFILE;
+    else process.env.DOCSAVE_PROFILE = prev;
+    return cfg as { permissions: string[]; blockedPermissions: string[] };
+  }
+
+  test('restricted photo, storage, location and advertising permissions are blocked', () => {
+    const { blockedPermissions } = androidConfig('production');
+    for (const p of [
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.READ_MEDIA_VIDEO',
+      'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android.permission.ACCESS_FINE_LOCATION',
+      'com.google.android.gms.permission.AD_ID',
+      'android.permission.INTERNET',
+    ]) {
+      expect(blockedPermissions).toContain(p);
+    }
+  });
+
+  test('only the permissions Docsave needs are requested', () => {
+    expect(androidConfig('production').permissions.sort()).toEqual(
+      [
+        'android.permission.CAMERA',
+        'android.permission.POST_NOTIFICATIONS',
+        'android.permission.USE_BIOMETRIC',
+        'android.permission.USE_FINGERPRINT',
+      ].sort(),
+    );
+  });
+});

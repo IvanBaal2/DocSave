@@ -23,7 +23,10 @@ const blockedPermissions = [
   'android.permission.RECORD_AUDIO',
   'android.permission.READ_EXTERNAL_STORAGE',
   'android.permission.WRITE_EXTERNAL_STORAGE',
+  // Restricted by Google Play's photo/video permissions policy; Docsave uses the system photo picker.
+  'android.permission.READ_MEDIA_IMAGES',
   'android.permission.READ_MEDIA_VIDEO',
+  'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
   'android.permission.READ_MEDIA_AUDIO',
   'android.permission.ACCESS_FINE_LOCATION',
   'android.permission.ACCESS_COARSE_LOCATION',
@@ -42,7 +45,7 @@ module.exports = {
     scheme: 'docsave',
     orientation: 'portrait',
     userInterfaceStyle: 'dark',
-    backgroundColor: '#05080F',
+    backgroundColor: '#0C1A30',
     icon: './assets/icon.png',
     ios: {
       bundleIdentifier: BUNDLE_ID,
@@ -87,7 +90,7 @@ module.exports = {
       allowBackup: false,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#05080F',
+        backgroundColor: '#0C1A30',
       },
       permissions: [
         'android.permission.CAMERA',
@@ -106,9 +109,9 @@ module.exports = {
           image: './assets/splash-icon.png',
           imageWidth: 200,
           resizeMode: 'contain',
-          backgroundColor: '#05080F',
-          android: { image: './assets/splash-icon.png', imageWidth: 200, backgroundColor: '#05080F' },
-          ios: { image: './assets/splash-icon.png', imageWidth: 200, backgroundColor: '#05080F' },
+          backgroundColor: '#0C1A30',
+          android: { image: './assets/splash-icon.png', imageWidth: 200, backgroundColor: '#0C1A30' },
+          ios: { image: './assets/splash-icon.png', imageWidth: 200, backgroundColor: '#0C1A30' },
         },
       ],
       // The development launcher is only included in development builds.

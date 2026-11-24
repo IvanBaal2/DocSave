@@ -19,7 +19,7 @@ export type LegalDocument = {
 
 export const PUBLISHER = 'Ivan Baal';
 export const PUBLISHER_STATUS = 'an individual developer';
-export const ADDRESS = 'Pili, Camarines Sur';
+export const ADDRESS = 'Pili, Camarines Sur 4418';
 export const COUNTRY = 'Philippines';
 export const CONTACT = 'u2648454771@id.gle';
 export const WEBSITE = 'https://ivanbaal2.github.io/DocSave/docs/';
@@ -27,7 +27,7 @@ const UPDATED = '24 November 2026';
 
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
-  version: '3.0',
+  version: '3.1',
   updated: UPDATED,
   status: 'final',
   sections: [
@@ -188,7 +188,7 @@ export const PRIVACY: LegalDocument = {
 
 export const TERMS: LegalDocument = {
   title: 'Terms & Conditions',
-  version: '3.0',
+  version: '3.1',
   updated: UPDATED,
   status: 'final',
   sections: [

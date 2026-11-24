@@ -4,13 +4,13 @@ Updated: 19 November 2026
 
 ## Verdict: **NOT READY FOR RELEASE**
 
-Why: the publisher address has no postal code yet, and no physical-device test matrix has been completed. (Legal review of the Terms and Privacy Policy was waived by the publisher on 24 Nov 2026; no independent penetration test has been done.)
+Why: no physical-device test matrix has been completed. (Legal review of the Terms and Privacy Policy was waived by the publisher on 24 Nov 2026; no independent penetration test has been done.)
 
 Status key: **DONE**: implemented and evidenced in this repository · **PARTIAL**: work exists but something is still open · **OWNER**: needs information or action only the publisher can provide · **EXTERNAL**: needs a third party (lawyer, tester, store) · **NOT STARTED**
 
 | # | Area | Status | Evidence / what is open |
 |---|---|---|---|
-| 1 | Legal identity of publisher | **PARTIAL** | Provided 24 Nov 2026: Ivan Baal, individual developer, Pili, Camarines Sur, Philippines. Postal code and street address still missing (Play may ask for a full address). |
+| 1 | Legal identity of publisher | **DONE** | Ivan Baal, individual developer, Pili, Camarines Sur 4418, Philippines (confirmed 24 Nov 2026). Play may still ask for a street address. |
 | 2 | GDPR / LOPDGDD assessment, DPIA screening | **PARTIAL** | [GDPR_ASSESSMENT.md](GDPR_ASSESSMENT.md) is an engineering assessment, not legal advice. Lawyer confirmation needed. |
 | 3 | Privacy Policy | **DONE** | v3.0 (24 Nov 2026). Philippine Data Privacy Act and National Privacy Commission. Legal review waived by the publisher (24 Nov 2026). |
 | 4 | Terms & Conditions | **DONE** | v3.0 (24 Nov 2026). Users 18+ (under 18 with parent or guardian), Philippine law. Legal review waived by the publisher (24 Nov 2026). |

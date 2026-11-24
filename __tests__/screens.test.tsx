@@ -305,30 +305,21 @@ describe('lock screen', () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 500));
     });
-    expect(screen.getByText('Your vault is locked')).toBeTruthy();
+    expect(screen.getByText('Vault locked')).toBeTruthy();
     expect(mockVault.unlockWithBiometrics).toHaveBeenCalled();
-    // face / fingerprint first; the PIN pad only when asked for
-    expect(screen.queryByLabelText('Digit 1')).toBeNull();
-    const { fireEvent } = require('@testing-library/react-native');
-    await act(async () => {
-      fireEvent.press(screen.getByText('Enter PIN instead'));
-    });
-    expect(screen.getByLabelText('Digit 1')).toBeTruthy();
   });
 });
 
 describe('vault screens', () => {
   test('dashboard', async () => {
     await renderScreen(() => require('../app/(vault)/index'));
-    expect(screen.getByText('Scan a document')).toBeTruthy();
-    expect(screen.getByText('All documents')).toBeTruthy();
-    // identity documents shown as wallet cards
-    expect(screen.getByLabelText('Passport, Ivan Lorence Bongon')).toBeTruthy();
+    expect(screen.getByText('Add Document')).toBeTruthy();
+    expect(screen.getByText('My IDs')).toBeTruthy();
     // search box at the top of the home screen
     expect(screen.getByRole('search')).toBeTruthy();
     expect(screen.getByText('Passport Ivan Lorence Bongon')).toBeTruthy();
     // old names lose the dash
-    expect(screen.getAllByText('Driving Licence IVAN').length).toBeGreaterThan(0);
+    expect(screen.getByText('Driving Licence IVAN')).toBeTruthy();
   });
   test('document type picker', async () => {
     await renderScreen(() => require('../app/(vault)/add'));
@@ -458,8 +449,9 @@ describe('removed features', () => {
   });
   test('home has camera and import entry points', async () => {
     await renderScreen(() => require('../app/(vault)/index'));
-    expect(screen.getByText('Scan a document')).toBeTruthy();
+    expect(screen.getByText('Add Document')).toBeTruthy();
     expect(screen.getByText('Import files')).toBeTruthy();
+    expect(screen.getByText('Import photos')).toBeTruthy();
   });
 });
 

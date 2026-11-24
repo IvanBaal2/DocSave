@@ -5,7 +5,7 @@ import { Alert, Text, View } from 'react-native';
 import { Chip, Header, Notice, Screen, SectionTitle, SettingRow, SettingsGroup } from '../../../src/components/ui';
 import { useI18n } from '../../../src/i18n';
 import { useReauth } from '../../../src/security/ReauthProvider';
-import { colors, radius, spacing, type, fonts } from '../../../src/theme/theme';
+import { colors, radius, spacing, type } from '../../../src/theme/theme';
 import type { UnlockMode } from '../../../src/vault/types';
 import { useVault, type BiometricInfo } from '../../../src/vault/VaultContext';
 import { autoLockLabel } from '../../../src/utils/format';
@@ -54,24 +54,22 @@ function PriorityRow({
       accessible
       accessibilityLabel={`${rank}. ${title}: ${meta.label}`}
     >
-      {/* The number is the order Docsave tries the methods in. */}
+      <Text style={[type.h3, { width: 22, color: colors.textMuted }]}>{rank}</Text>
       <View
         style={{
-          width: 34,
-          height: 34,
-          borderRadius: 17,
-          borderWidth: 2,
-          borderColor: state === 'ready' || state === 'backup' ? colors.primary : colors.borderStrong,
+          width: 36,
+          height: 36,
+          borderRadius: 10,
           alignItems: 'center',
           justifyContent: 'center',
+          backgroundColor: colors.primarySoft,
         }}
       >
-        <Text style={[type.h3, { fontSize: 14, color: state === 'ready' || state === 'backup' ? colors.primaryBright : colors.textMuted }]}>{rank}</Text>
+        <Ionicons name={icon} size={18} color={colors.primaryBright} />
       </View>
-      <Ionicons name={icon} size={18} color={colors.textMuted} style={{ marginStart: spacing.md }} />
-      <Text style={[type.h3, { flex: 1, marginHorizontal: spacing.md, fontFamily: fonts.medium }]}>{title}</Text>
+      <Text style={[type.h3, { flex: 1, marginHorizontal: spacing.md, fontWeight: '500' }]}>{title}</Text>
       <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: meta.bg }}>
-        <Text style={[type.caption, { color: meta.color, fontFamily: fonts.semibold }]}>{meta.label}</Text>
+        <Text style={[type.caption, { color: meta.color, fontWeight: '600' }]}>{meta.label}</Text>
       </View>
     </View>
   );

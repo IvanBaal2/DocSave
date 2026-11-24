@@ -15,7 +15,7 @@ import { useCameraPermissions } from 'expo-camera';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, type, fonts } from '../theme/theme';
+import { colors, spacing, type } from '../theme/theme';
 import { useVault } from '../vault/VaultContext';
 import { Button } from './ui';
 import { useI18n } from '../i18n';
@@ -236,6 +236,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primarySoft,
   },
-  stepNumText: { color: colors.primaryBright, fontFamily: fonts.bold, fontSize: 13 },
+  stepNumText: { color: colors.primaryBright, fontWeight: '700', fontSize: 13 },
   actions: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, paddingTop: spacing.sm },
 });

@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PinPad } from '../src/components/PinPad';
-import { haptic } from '../src/components/ui';
+import { Button, Logo, haptic } from '../src/components/ui';
 import { colors, spacing, type } from '../src/theme/theme';
 import { MAX_ATTEMPTS_BEFORE_WIPE } from '../src/vault/keyManager';
 import { useVault } from '../src/vault/VaultContext';
@@ -18,7 +18,6 @@ export default function LockScreen() {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [usePin, setUsePin] = useState(false);
   const [shake, setShake] = useState(0);
   const [now, setNow] = useState(Date.now());
   const autoPrompted = useRef(false);
@@ -87,23 +86,21 @@ ${t('The only option is to permanently destroy this vault and start again with a
   const remaining = Math.max(0, Math.ceil((lockedUntil - now) / 1000));
   const failed = vault.attempts.failed;
 
-  // Face / fingerprint first; the PIN pad appears only when asked for (or when biometrics are off).
-  const biometricFirst = (mode === 'pin_or_bio' && vault.biometrics.enrolled && !usePin) || needBiometricStep;
-  const faceFirst = vault.biometrics.face;
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, direction }}>
       <View style={{ flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xl }}>
         <View style={{ alignItems: 'center', paddingHorizontal: spacing.xl }}>
-          <Text style={[type.display, { fontSize: 28, marginTop: spacing.xl }]}>Docsave</Text>
-          <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.sm, color: colors.textMuted }]}>
+          <Logo size={44} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xl }}>
+            <Ionicons name="lock-closed" size={16} color={colors.primaryBright} />
+            <Text style={[type.h2, { marginStart: 8 }]}>{t('Vault locked')}</Text>
+          </View>
+          <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: spacing.sm }]}>
             {needBiometricStep
               ? t('Step 1 of 2: verify with {method}', { method: bioLabel })
               : mode === 'pin_and_bio'
                 ? t('Step 2 of 2: enter your PIN')
-                : biometricFirst
-                  ? t('Your vault is locked')
-                  : t('Enter your PIN to decrypt your documents')}
+                : t('Enter your PIN to decrypt your documents')}
           </Text>
           <View style={{ minHeight: 44, marginTop: spacing.md, alignItems: 'center', justifyContent: 'center' }}>
             {busy ? (
@@ -120,29 +117,39 @@ ${t('The only option is to permanently destroy this vault and start again with a
             ) : failed > 0 ? (
               <Text style={[type.caption, { textAlign: 'center' }]}>
                 {failed === 1 ? t('1 failed attempt') : t('{count} failed attempts', { count: failed })}
-                {vault.settings.wipeAfterFailedAttempts ? ` · ${t('vault erases after {count}', { count: MAX_ATTEMPTS_BEFORE_WIPE })}` : ''}
+                {vault.settings.wipeAfterFailedAttempts
+                  ? ` · ${t('vault erases after {count}', { count: MAX_ATTEMPTS_BEFORE_WIPE })}`
+                  : ''}
               </Text>
             ) : null}
           </View>
         </View>
 
-        {biometricFirst ? (
-          <View style={{ paddingHorizontal: 28, alignItems: 'center' }}>
+        {needBiometricStep ? (
+          <View style={{ paddingHorizontal: spacing.xl, alignItems: 'center' }}>
             <Pressable
               onPress={tryBiometrics}
-              disabled={busy || lockedOut}
               accessibilityRole="button"
-              accessibilityLabel={t('Unlock with {method}', { method: bioLabel })}
-              style={({ pressed }) => [styles.bioRing, pressed && { transform: [{ scale: 0.96 }] }]}
+              accessibilityLabel={t('Verify with {method}', { method: bioLabel })}
+              style={({ pressed }) => ({
+                width: 120,
+                height: 120,
+                borderRadius: 60,
+                borderWidth: 1,
+                borderColor: colors.primaryBorder,
+                backgroundColor: colors.primarySoft,
+                alignItems: 'center',
+                justifyContent: 'center',
+                transform: [{ scale: pressed ? 0.96 : 1 }],
+              })}
             >
-              <Ionicons name={faceFirst ? 'scan-outline' : 'finger-print-outline'} size={64} color={colors.primaryBright} />
+              <Ionicons name={vault.biometrics.icon} size={54} color={colors.primaryBright} />
             </Pressable>
-            <Text style={[type.h3, { fontSize: 17, marginTop: 18 }]}>{faceFirst ? t('Look at your phone') : t('Touch the fingerprint sensor')}</Text>
-            <Text style={[type.bodySecondary, { textAlign: 'center', marginTop: 6, color: colors.textMuted, maxWidth: 280 }]}>
-              {faceFirst && vault.biometrics.fingerprint
-                ? t('Face first, then fingerprint if your face is not recognised.')
-                : t('Tap the circle if the check does not start.')}
-            </Text>
+            <Button
+              title={t('Verify with {method}', { method: bioLabel })}
+              onPress={tryBiometrics}
+              style={{ alignSelf: 'stretch', marginTop: spacing.xxl }}
+            />
           </View>
         ) : (
           <PinPad
@@ -160,39 +167,10 @@ ${t('The only option is to permanently destroy this vault and start again with a
           />
         )}
 
-        <View style={{ paddingHorizontal: 28, alignItems: 'center' }}>
-          {biometricFirst && !needBiometricStep ? (
-            <Pressable onPress={() => setUsePin(true)} accessibilityRole="button" style={styles.pinButton}>
-              <Text style={[type.button, { color: '#9FD9C4' }]}>{t('Enter PIN instead')}</Text>
-            </Pressable>
-          ) : null}
-          <Pressable onPress={forgotPin} accessibilityRole="button" style={{ padding: spacing.md }}>
-            <Text style={[type.caption, { color: colors.textMuted }]}>{t('Forgot PIN?')}</Text>
-          </Pressable>
-        </View>
+        <Pressable onPress={forgotPin} accessibilityRole="button" style={{ alignSelf: 'center', padding: spacing.md }}>
+          <Text style={[type.caption, { color: colors.textSecondary }]}>{t('Forgot PIN?')}</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  bioRing: {
-    width: 148,
-    height: 148,
-    borderRadius: 74,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    backgroundColor: '#12294A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pinButton: {
-    alignSelf: 'stretch',
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

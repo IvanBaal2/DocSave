@@ -13,7 +13,7 @@ import { TamperError, wipe } from '../../../src/crypto/core';
 import { exportPage } from '../../../src/security/exporter';
 import { t as tr, tLabel, useI18n } from '../../../src/i18n';
 import { useReauth } from '../../../src/security/ReauthProvider';
-import { colors, radius, spacing, type, fonts } from '../../../src/theme/theme';
+import { colors, radius, spacing, type } from '../../../src/theme/theme';
 import { allCategories, findCategory, findDocType, findDocTypeAny } from '../../../src/vault/categories';
 import { useVault } from '../../../src/vault/VaultContext';
 import { displayName, formatBytes, formatDate, formatTimestamp } from '../../../src/utils/format';
@@ -195,7 +195,7 @@ export default function DocumentViewer() {
               accessibilityState={{ selected: i === pageIdx }}
               style={[styles.tab, i === pageIdx && styles.tabActive]}
             >
-              <Text style={[type.bodySecondary, { fontSize: 13 }, i === pageIdx && { color: colors.text, fontFamily: fonts.semibold }]}>
+              <Text style={[type.bodySecondary, { fontSize: 13 }, i === pageIdx && { color: colors.text, fontWeight: '600' }]}>
                 {tLabel(p.label)}
               </Text>
             </Pressable>

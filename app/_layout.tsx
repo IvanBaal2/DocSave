@@ -1,10 +1,4 @@
 import { Stack } from 'expo-router';
-import { useFonts } from 'expo-font';
-import { IBMPlexMono_400Regular } from '@expo-google-fonts/ibm-plex-mono/400Regular';
-import { SchibstedGrotesk_400Regular } from '@expo-google-fonts/schibsted-grotesk/400Regular';
-import { SchibstedGrotesk_500Medium } from '@expo-google-fonts/schibsted-grotesk/500Medium';
-import { SchibstedGrotesk_600SemiBold } from '@expo-google-fonts/schibsted-grotesk/600SemiBold';
-import { SchibstedGrotesk_700Bold } from '@expo-google-fonts/schibsted-grotesk/700Bold';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
@@ -16,7 +10,7 @@ import { IntegrityWarning } from '../src/components/IntegrityWarning';
 import { PrivacyShield } from '../src/security/PrivacyShield';
 import { ReauthProvider } from '../src/security/ReauthProvider';
 import { useI18n } from '../src/i18n';
-import { colors, fonts } from '../src/theme/theme';
+import { colors } from '../src/theme/theme';
 import { VaultProvider, useVault } from '../src/vault/VaultContext';
 
 installGlobalErrorHandler();
@@ -62,21 +56,11 @@ function RootNavigator() {
     );
   }, []);
 
-  // Bundled fonts load from the app package (no network). If they fail, the system font is used.
-  const [fontsLoaded, fontError] = useFonts({
-    [fonts.regular]: SchibstedGrotesk_400Regular,
-    [fonts.medium]: SchibstedGrotesk_500Medium,
-    [fonts.semibold]: SchibstedGrotesk_600SemiBold,
-    [fonts.bold]: SchibstedGrotesk_700Bold,
-    [fonts.mono]: IBMPlexMono_400Regular,
-  });
-  const fontsReady = fontsLoaded || !!fontError;
-
   useEffect(() => {
-    if (status !== 'loading' && fontsReady) SplashScreen.hideAsync().catch(() => {});
-  }, [status, fontsReady]);
+    if (status !== 'loading') SplashScreen.hideAsync().catch(() => {});
+  }, [status]);
 
-  if (status === 'loading' || !fontsReady) {
+  if (status === 'loading') {
     return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   }
 

@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { t, useI18n } from '../i18n';
-import { colors, gradients, radius, shadow, spacing, type } from '../theme/theme';
+import { colors, gradients, radius, shadow, spacing, type, fonts } from '../theme/theme';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -297,7 +297,7 @@ export function Chip({
       {icon ? (
         <Ionicons name={icon} size={15} color={selected ? colors.primaryBright : colors.textSecondary} style={{ marginEnd: 6 }} />
       ) : null}
-      <Text style={[type.bodySecondary, { fontSize: 13 }, selected && { color: colors.primaryBright, fontWeight: '600' }]}>
+      <Text style={[type.bodySecondary, { fontSize: 13 }, selected && { color: colors.primaryBright, fontFamily: fonts.semibold }]}>
         {label}
       </Text>
     </Pressable>
@@ -349,7 +349,7 @@ export function SettingRow({
         <Ionicons name={icon} size={18} color={tint} />
       </View>
       <View style={{ flex: 1, marginHorizontal: spacing.md }}>
-        <Text style={[type.h3, { fontWeight: '500' }, danger && { color: colors.danger }]}>{title}</Text>
+        <Text style={[type.h3, { fontFamily: fonts.medium }, danger && { color: colors.danger }]}>{title}</Text>
         {subtitle ? <Text style={[type.caption, { marginTop: 2 }]}>{subtitle}</Text> : null}
       </View>
       {toggle !== undefined ? (

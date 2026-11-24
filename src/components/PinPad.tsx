@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { colors, spacing, type } from '../theme/theme';
+import { colors, spacing, type, fonts } from '../theme/theme';
 import { t } from '../i18n';
 import type { IconName } from './ui';
 
@@ -137,5 +137,5 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   keyDigit: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  digit: { ...type.h1, fontSize: 28, fontWeight: '500' },
+  digit: { ...type.h1, fontSize: 28, fontFamily: fonts.medium },
 });

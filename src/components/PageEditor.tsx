@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { rotateJpeg, warpJpeg, type Quad } from '../../modules/docsave-security';
 import { FULL_QUAD, rotateQuad } from '../scan/geometry';
 import { useI18n } from '../i18n';
-import { colors, radius, spacing, type } from '../theme/theme';
+import { colors, fonts, radius, spacing, type } from '../theme/theme';
 import { Button } from './ui';
 
 const isFull = (q: Quad) => q.every((v, i) => Math.abs(v - FULL_QUAD[i]) < 0.005);
@@ -44,6 +44,7 @@ export function PageEditor({
   const [quad, setQuad] = useState<Quad>(initialQuad);
   const [enhance, setEnhance] = useState(enhanceByDefault);
   const [busy, setBusy] = useState(false);
+  const [turns, setTurns] = useState(0);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const quadRef = useRef(quad);
   quadRef.current = quad;
@@ -92,6 +93,7 @@ export function PageEditor({
       const turned = await rotateJpeg(image.b64, 90);
       setImage((i) => ({ b64: turned, w: i.h, h: i.w }));
       setQuad((q) => rotateQuad(q));
+      setTurns((n) => (n + 1) % 4);
     } finally {
       setBusy(false);
     }
@@ -165,9 +167,21 @@ export function PageEditor({
       </View>
 
       <View style={styles.tools}>
-        <Tool icon="refresh-outline" label={t('Rotate')} onPress={rotate} disabled={busy} />
-        <Tool icon="scan-outline" label={t('Whole photo')} onPress={() => setQuad(FULL_QUAD)} disabled={busy} active={isFull(quad)} />
-        <Tool icon="sunny-outline" label={t('Enhance')} onPress={() => setEnhance((v) => !v)} disabled={busy} active={enhance} />
+        <Tool icon="refresh-outline" label={t('Rotate')} state={turns ? `${turns * 90}°` : t('Upright')} onPress={rotate} disabled={busy} active={turns > 0} />
+        <Tool
+          icon="scan-outline"
+          label={t('Whole photo')}
+          state={isFull(quad) ? t('Original kept') : t('Cropped')}
+          onPress={() => {
+            if (!isFull(quad)) return setQuad(FULL_QUAD);
+            let q = initialQuad;
+            for (let i = 0; i < turns; i++) q = rotateQuad(q);
+            setQuad(q);
+          }}
+          disabled={busy}
+          active={isFull(quad)}
+        />
+        <Tool icon="sunny-outline" label={t('Enhance')} state={enhance ? t('On') : t('Off')} onPress={() => setEnhance((v) => !v)} disabled={busy} active={enhance} />
       </View>
       <View style={styles.actions}>
         <Button title={t('Retake')} variant="secondary" icon="camera-reverse-outline" onPress={onRetake} disabled={busy} style={{ flex: 1 }} />
@@ -181,12 +195,14 @@ export function PageEditor({
 function Tool({
   icon,
   label,
+  state,
   onPress,
   disabled,
   active,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
+  state: string;
   onPress: () => void;
   disabled?: boolean;
   active?: boolean;
@@ -196,12 +212,13 @@ function Tool({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={`${label}: ${state}`}
       accessibilityState={{ selected: !!active, disabled: !!disabled }}
       style={[styles.tool, active && { borderColor: colors.primaryBorder, backgroundColor: colors.primarySoft }]}
     >
       <Ionicons name={icon} size={20} color={active ? colors.primaryBright : colors.text} />
-      <Text style={[type.caption, { marginTop: 4, color: active ? colors.primaryBright : colors.textSecondary }]}>{label}</Text>
+      <Text style={[type.caption, { marginTop: 4, fontFamily: fonts.semibold, color: active ? colors.primaryBright : colors.text }]}>{label}</Text>
+      <Text style={[type.caption, { fontSize: 12 }]}>{state}</Text>
     </Pressable>
   );
 }

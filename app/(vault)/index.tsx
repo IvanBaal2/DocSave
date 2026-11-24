@@ -1,73 +1,108 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DocumentCard, iconForDocument } from '../../src/components/DocumentCard';
-import { EmptyState, FadeIn, IconButton, SectionTitle, type IconName } from '../../src/components/ui';
-import { colors, gradients, radius, shadow, spacing, type } from '../../src/theme/theme';
-import { ESSENTIAL_TYPES, findCategory, findDocTypeAny } from '../../src/vault/categories';
-import { useVault } from '../../src/vault/VaultContext';
-import { daysUntil, displayName } from '../../src/utils/format';
+import Svg, { Path } from 'react-native-svg';
+import { DocumentCard } from '../../src/components/DocumentCard';
+import { EmptyState, IconButton, type IconName } from '../../src/components/ui';
 import { useI18n } from '../../src/i18n';
+import { colors, fonts, radius, shadow, spacing, type } from '../../src/theme/theme';
+import { daysUntil, displayName, formatDate } from '../../src/utils/format';
+import { ESSENTIAL_TYPES, findDocTypeAny } from '../../src/vault/categories';
+import type { DocumentRecord } from '../../src/vault/types';
+import { useVault } from '../../src/vault/VaultContext';
 
-export default function Dashboard() {
+/** Fine wavy lines like the security print on real documents (decoration only). */
+function SecurityPrint({ color, width, height, opacity }: { color: string; width: number; height: number; opacity: number }) {
+  const rows = [40, 52, 64, 76];
+  const w = width;
+  const seg = w / 4;
+  return (
+    <Svg width={w} height={height} style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {rows.map((y) => (
+        <Path
+          key={y}
+          d={`M0 ${y} Q ${seg / 2} ${y - 30} ${seg} ${y} T ${seg * 2} ${y} T ${seg * 3} ${y} T ${seg * 4} ${y}`}
+          stroke={color}
+          strokeWidth={0.8}
+          fill="none"
+        />
+      ))}
+    </Svg>
+  );
+}
+
+const field = (d: DocumentRecord, key: string) => d.fields?.find((f) => f.key === key)?.value?.trim();
+
+export default function Home() {
   const router = useRouter();
   const vault = useVault();
   const { t, forward, direction } = useI18n();
   const { documents, customCategories } = vault.index;
-  const mine = useMemo(() => [...documents].sort((a, b) => a.name.localeCompare(b.name)), [documents]);
-  const expiring = useMemo(
+
+  const list = useMemo(() => [...documents].sort((a, b) => b.updatedAt - a.updatedAt), [documents]);
+  // The wallet stack: identity documents, the one expiring soonest on top.
+  const ids = useMemo(
+    () =>
+      documents
+        .filter((d) => d.categoryId === 'identity')
+        .sort((a, b) => (daysUntil(a.expiryDate) ?? 1e9) - (daysUntil(b.expiryDate) ?? 1e9))
+        .slice(0, 2),
+    [documents],
+  );
+  const expiringOther = useMemo(
     () =>
       documents.filter((d) => {
         const n = daysUntil(d.expiryDate);
-        return d.categoryId !== 'travel' && n != null && n <= 90;
+        return d.categoryId !== 'identity' && d.categoryId !== 'travel' && n != null && n <= 30;
       }),
     [documents],
   );
+
   const mode = vault.meta?.unlockMode ?? 'pin';
   const compromised = vault.integrity.compromised;
-  const unlockLabel = mode === 'pin' ? 'PIN' : t(vault.biometrics.label);
+  const { biometrics } = vault;
+  const lockedWith =
+    mode === 'pin' ? t('Locked with your PIN') : biometrics.face ? t('Locked with your face') : t('Locked with your fingerprint');
+
+  function chooseImport() {
+    Alert.alert(t('Import'), t('Where is the document?'), [
+      { text: t('Files (PDF, images…)'), onPress: () => router.push({ pathname: '/import', params: { source: 'files' } }) },
+      { text: t('Photo library'), onPress: () => router.push({ pathname: '/import', params: { source: 'photos' } }) },
+      { text: t('Cancel'), style: 'cancel' },
+    ]);
+  }
+
+  const open = (d: DocumentRecord) => router.push({ pathname: '/document/[id]', params: { id: d.id } });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, direction }} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={{ padding: spacing.xl, paddingTop: spacing.md, paddingBottom: 48 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* 1. Brand + 2. compact security indicator */}
-        <View style={styles.topRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={[type.h1, { fontSize: 22 }]}>
-                Doc<Text style={{ color: colors.primaryBright }}>save</Text>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: spacing.md, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+        <View style={styles.top}>
+          <View style={{ flex: 1 }}>
+            <Text style={[type.h1, { fontSize: 24 }]}>Docsave</Text>
+            <Pressable
+              onPress={() => router.push('/settings/protection')}
+              accessibilityRole="button"
+              accessibilityLabel={compromised ? t('Security warning. Open security settings') : lockedWith}
+              style={styles.status}
+              hitSlop={6}
+            >
+              <Ionicons name={compromised ? 'warning' : 'shield-checkmark'} size={14} color={compromised ? colors.warning : colors.primary} />
+              <Text style={[type.caption, { marginStart: 6, color: compromised ? colors.warning : '#9FD9C4' }]}>
+                {compromised ? t('Device at risk') : lockedWith}
               </Text>
-              <Pressable
-                onPress={() => router.push('/settings/security')}
-                accessibilityRole="button"
-                accessibilityLabel={compromised ? t('Security warning. Open security settings') : t('Vault protected with {method}. Open security settings', { method: unlockLabel })}
-                style={[styles.statusPill, compromised && { borderColor: colors.warning + '66', backgroundColor: colors.warningSoft }]}
-              >
-                <View style={[styles.dot, { backgroundColor: compromised ? colors.warning : colors.primaryBright }]} />
-                <Text style={[type.caption, { color: compromised ? colors.warning : colors.primaryBright, fontWeight: '600' }]}>
-                  {compromised ? t('Device at risk') : t('Protected')}
-                </Text>
-                <Text style={[type.caption, { marginStart: 6 }]} numberOfLines={1}>
-                  · AES-256 · {unlockLabel}
-                </Text>
-              </Pressable>
-            </View>
+            </Pressable>
           </View>
           <IconButton icon="settings-outline" accessibilityLabel={t('Settings')} onPress={() => router.push('/settings')} />
         </View>
 
-        {/* Search box at the top: always in the same place */}
         <Pressable
           onPress={() => router.push('/search')}
           accessibilityRole="search"
           accessibilityLabel={t('Search documents')}
-          style={({ pressed }) => [styles.searchBox, pressed && { backgroundColor: colors.surfacePressed }]}
+          style={({ pressed }) => [styles.search, pressed && { backgroundColor: colors.surfacePressed }]}
         >
           <Ionicons name="search" size={18} color={colors.textMuted} />
           <Text style={[type.body, { color: colors.textMuted, marginStart: spacing.sm, flex: 1 }]} numberOfLines={1}>
@@ -75,162 +110,171 @@ export default function Dashboard() {
           </Text>
         </Pressable>
 
-        {/* 3. Main action */}
-        <FadeIn>
+        {/* The wallet: identity documents as physical cards */}
+        {ids.length ? (
+          <View style={{ marginTop: 22, height: ids.length > 1 ? 238 : 178 }}>
+            {ids.map((d, i) => {
+              const def = findDocTypeAny(d.docType)?.type;
+              const days = daysUntil(d.expiryDate);
+              const holder = field(d, 'fullName') ?? displayName(d.name);
+              const number = field(d, 'documentNumber');
+              const isPassport = d.docType === 'passport';
+              if (i === 0) {
+                return (
+                  <Pressable
+                    key={d.id}
+                    onPress={() => open(d)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t(def?.label ?? 'Document')}, ${holder}`}
+                    style={({ pressed }) => [
+                      styles.cardTop,
+                      { backgroundColor: isPassport ? colors.passport : colors.paper },
+                      pressed && { transform: [{ scale: 0.99 }] },
+                    ]}
+                  >
+                    <SecurityPrint color={isPassport ? colors.passportInk : '#9DB0CC'} width={350} height={170} opacity={isPassport ? 0.18 : 0.45} />
+                    <Text style={[type.caption, { fontFamily: fonts.medium, color: isPassport ? colors.passportGold : colors.paperMuted }]}>
+                      {t(def?.label ?? 'Document')}
+                    </Text>
+                    <View>
+                      <Text style={[type.h2, { fontSize: 20, color: isPassport ? colors.passportInk : colors.paperInk }]} numberOfLines={1}>
+                        {holder}
+                      </Text>
+                      <Text style={[type.mono, { color: isPassport ? colors.passportGold : colors.paperMuted, marginTop: 2 }]} numberOfLines={1}>
+                        {[number, d.expiryDate ? t('valid to {date}', { date: formatDate(d.expiryDate) }) : null].filter(Boolean).join('  ·  ')}
+                      </Text>
+                    </View>
+                    {days != null && days <= 90 ? (
+                      <View style={styles.expiryPill}>
+                        <Text style={[type.caption, { color: colors.paperWarn, fontFamily: fonts.semibold }]}>
+                          {days < 0 ? t('Expired') : t('Expires in {n} days', { n: days })}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              }
+              return (
+                <Pressable
+                  key={d.id}
+                  onPress={() => open(d)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t(def?.label ?? 'Document')}, ${holder}`}
+                  style={({ pressed }) => [styles.cardUnder, pressed && { transform: [{ scale: 0.99 }] }]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[type.h3, { fontSize: 15, color: colors.paperInk }]} numberOfLines={1}>
+                      {t(def?.label ?? 'Document')}
+                    </Text>
+                    <Text style={[type.caption, { color: days != null && days <= 90 ? colors.paperWarn : colors.paperMuted }]} numberOfLines={1}>
+                      {days != null && days < 0
+                        ? t('Expired')
+                        : days != null && days <= 90
+                          ? t('Expires in {n} days', { n: days })
+                          : holder}
+                    </Text>
+                  </View>
+                  <Ionicons name={forward} size={18} color={colors.paperMuted} />
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => router.push({ pathname: '/scan', params: { type: 'passport' } })}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.emptyCard, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="id-card-outline" size={26} color={colors.paperMuted} />
+            <Text style={[type.h3, { color: colors.paperInk, marginTop: spacing.sm }]}>{t('Add your passport or ID card')}</Text>
+            <Text style={[type.caption, { color: colors.paperMuted, marginTop: 2, textAlign: 'center' }]}>
+              {t('Scan it once and keep it with you, encrypted on this phone.')}
+            </Text>
+          </Pressable>
+        )}
+
+        {/* Quick add for IDs (also for family members) */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: spacing.md }} contentContainerStyle={{ gap: spacing.sm }}>
+          {ESSENTIAL_TYPES.map((typeId) => {
+            const def = findDocTypeAny(typeId)!.type;
+            return (
+              <Pressable
+                key={typeId}
+                onPress={() => router.push({ pathname: '/scan', params: { type: typeId } })}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('Add')} ${t(def.label)}`}
+                style={({ pressed }) => [styles.quick, pressed && { backgroundColor: colors.surfacePressed }]}
+              >
+                <Ionicons name="add" size={16} color={colors.primaryBright} />
+                <Text style={[type.caption, { color: colors.textSecondary, marginStart: 4 }]}>{t(def.label)}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* The two ways to add something */}
+        <View style={styles.actions}>
           <Pressable
             onPress={() => router.push('/add')}
             accessibilityRole="button"
-            accessibilityLabel={t('Add Document')}
-            style={({ pressed }) => [styles.hero, pressed && { transform: [{ scale: 0.985 }] }]}
+            style={({ pressed }) => [styles.action, { backgroundColor: colors.primary }, pressed && { opacity: 0.9 }]}
           >
-            <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-            <View style={styles.heroIcon}>
-              <Ionicons name="add" size={30} color="#03140D" />
-            </View>
-            <View style={{ flex: 1, marginStart: spacing.lg }}>
-              <Text style={[type.h1, { color: '#03140D', fontSize: 21 }]}>{t('Add Document')}</Text>
-              <Text style={{ color: '#063D2B', fontSize: 13, marginTop: 2, lineHeight: 18 }}>
-                {t('Scan a passport, ID or ticket. Read automatically and encrypted on this device.')}
-              </Text>
-            </View>
-            <Ionicons name="scan" size={26} color="#03140D" />
+            <Ionicons name="scan-outline" size={24} color={colors.onPrimary} />
+            <Text style={[type.h3, { color: colors.onPrimary }]}>{t('Scan a document')}</Text>
           </Pressable>
-        </FadeIn>
-
-        {/* Import existing files: one button per source */}
-        <View style={styles.importRow}>
           <Pressable
-            onPress={() => router.push({ pathname: '/import', params: { source: 'files' } })}
+            onPress={chooseImport}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.importBtn, pressed && { backgroundColor: colors.surfacePressed }]}
+            style={({ pressed }) => [styles.action, styles.actionQuiet, pressed && { backgroundColor: colors.surfacePressed }]}
           >
-            <Ionicons name="folder-open-outline" size={20} color={colors.primaryBright} />
-            <Text style={[type.h3, { marginStart: spacing.sm, fontSize: 14 }]} numberOfLines={1}>
-              {t('Import files')}
-            </Text>
-          </Pressable>
-          <View style={{ width: spacing.sm }} />
-          <Pressable
-            onPress={() => router.push({ pathname: '/import', params: { source: 'photos' } })}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.importBtn, pressed && { backgroundColor: colors.surfacePressed }]}
-          >
-            <Ionicons name="images-outline" size={20} color={colors.primaryBright} />
-            <Text style={[type.h3, { marginStart: spacing.sm, fontSize: 14 }]} numberOfLines={1}>
-              {t('Import photos')}
-            </Text>
+            <Ionicons name="cloud-upload-outline" size={24} color={colors.primaryBright} />
+            <Text style={type.h3}>{t('Import files')}</Text>
           </Pressable>
         </View>
 
-        {expiring.length ? (
-          <Pressable
-            onPress={() => router.push({ pathname: '/document/[id]', params: { id: expiring[0].id } })}
-            style={styles.alert}
-            accessibilityRole="button"
-          >
+        {expiringOther.length ? (
+          <Pressable onPress={() => open(expiringOther[0])} style={styles.alert} accessibilityRole="button">
             <Ionicons name="alarm-outline" size={18} color={colors.warning} />
             <Text style={[type.bodySecondary, { flex: 1, marginStart: spacing.sm, color: colors.text }]}>
-              {expiring.length === 1 ? t('“{name}” expires soon', { name: displayName(expiring[0].name) }) : t('{count} documents expire within 90 days', { count: expiring.length })}
+              {expiringOther.length === 1
+                ? t('“{name}” expires soon', { name: displayName(expiringOther[0].name) })
+                : t('{count} documents expire within 90 days', { count: expiringOther.length })}
             </Text>
             <Ionicons name={forward} size={16} color={colors.textMuted} />
           </Pressable>
         ) : null}
 
-        {/* 4. Essential IDs: one tap to open, or to scan if not saved yet */}
-        <SectionTitle>{t('My IDs')}</SectionTitle>
-        <View style={styles.idGrid}>
-          {ESSENTIAL_TYPES.map((typeId, i) => {
-            const def = findDocTypeAny(typeId)!;
-            const saved = documents.filter((d) => d.docType === typeId).sort((a, b) => b.updatedAt - a.updatedAt);
-            const doc = saved[0];
-            const days = daysUntil(doc?.expiryDate);
-            return (
-              <FadeIn key={typeId} delay={60 + i * 40} style={styles.idCell}>
-                <Pressable
-                  // Always adds a new one (e.g. a family member's ID); saved ones are under My Documents.
-                  onPress={() => router.push({ pathname: '/scan', params: { type: typeId } })}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${t('Add')} ${t(def.type.label)}${saved.length ? `, ${t('{count} saved', { count: saved.length })}` : ''}`}
-                  style={({ pressed }) => [
-                    styles.idTile,
-                    doc && { borderColor: colors.primaryBorder },
-                    pressed && { backgroundColor: colors.surfacePressed, transform: [{ scale: 0.98 }] },
-                  ]}
-                >
-                  <View style={[styles.catIcon, { backgroundColor: doc ? colors.primarySoft : colors.surfaceAlt }]}>
-                    <Ionicons name={def.type.icon as IconName} size={22} color={doc ? colors.primaryBright : colors.textSecondary} />
-                  </View>
-                  <Text style={[type.h3, { marginTop: spacing.sm, fontSize: 14 }]} numberOfLines={1}>
-                    {t(def.type.label)}
-                  </Text>
-                  {doc ? (
-                    <Text
-                      style={[type.caption, { marginTop: 2, color: days != null && days <= 90 ? colors.warning : colors.primaryBright }]}
-                      numberOfLines={1}
-                    >
-                      {days != null && days < 0 ? `${t('{count} saved', { count: saved.length })} · ${t('one expired')}` : days != null && days <= 90 ? `${t('{count} saved', { count: saved.length })} · ${t('expires in {days} days', { days })}` : `${t('{count} saved', { count: saved.length })} · ${t('+ add another')}`}
-                    </Text>
-                  ) : (
-                    <Text style={[type.caption, { marginTop: 2 }]}>{t('+ Add')}</Text>
-                  )}
-                </Pressable>
-              </FadeIn>
-            );
-          })}
-        </View>
-
         {documents.length > 0 && !vault.settings.protectionInfoSeen ? (
-          <View style={styles.infoCard}>
+          <View style={styles.info}>
             <Ionicons name="shield-checkmark" size={20} color={colors.primaryBright} />
             <View style={{ flex: 1, marginStart: spacing.md }}>
               <Text style={type.h3}>{t('Saved and encrypted on this phone')}</Text>
               <Text style={[type.caption, { marginTop: 2 }]}>
                 {t('Your documents are never uploaded or backed up. Important: Docsave cannot recover them if you forget your PIN, uninstall the app or lose this phone. Keep your original documents.')}
               </Text>
-              <View style={{ flexDirection: 'row', marginTop: spacing.sm }}>
-                <Pressable onPress={() => router.push('/settings/protection')} accessibilityRole="button" hitSlop={8}>
-                  <Text style={[type.caption, { color: colors.primaryBright, fontWeight: '600' }]}>{t('How it works')}</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => vault.updateSettings({ protectionInfoSeen: true })}
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  style={{ marginStart: spacing.xl }}
-                >
-                  <Text style={[type.caption, { color: colors.textSecondary }]}>{t('Got it')}</Text>
-                </Pressable>
-              </View>
+              <Pressable onPress={() => vault.updateSettings({ protectionInfoSeen: true })} accessibilityRole="button" hitSlop={8} style={{ marginTop: spacing.sm }}>
+                <Text style={[type.caption, { color: colors.primaryBright, fontFamily: fonts.semibold }]}>{t('Got it')}</Text>
+              </Pressable>
             </View>
           </View>
         ) : null}
 
-        {/* 5. My documents */}
-        <SectionTitle
-          action={
-            documents.length > 8 ? (
-              <Pressable onPress={() => router.push('/search')} accessibilityRole="button" hitSlop={8}>
-                <Text style={[type.caption, { color: colors.primaryBright }]}>{t('See all {count}', { count: documents.length })}</Text>
-              </Pressable>
-            ) : undefined
-          }
-        >
-          {t('My Documents')}
-        </SectionTitle>
+        <View style={styles.listHead}>
+          <Text style={type.h3} accessibilityRole="header">
+            {t('All documents')}
+          </Text>
+          {documents.length ? (
+            <Text style={type.caption}>{documents.length === 1 ? t('1 saved') : t('{count} saved', { count: documents.length })}</Text>
+          ) : null}
+        </View>
         {documents.length === 0 ? (
           <EmptyState
-            icon="shield-outline"
+            icon={'folder-open-outline' as IconName}
             title={t('Your vault is empty')}
-            body={t('Tap Add Document to scan your passport, ID card or tickets. Everything is encrypted before it is saved.')}
+            body={t('Scan a document or import files. Everything is encrypted before it is saved.')}
           />
         ) : (
-          mine.slice(0, 8).map((d) => (
-            <DocumentCard
-              key={d.id}
-              doc={d}
-              custom={customCategories}
-              onPress={() => router.push({ pathname: '/document/[id]', params: { id: d.id } })}
-            />
-          ))
+          list.map((d) => <DocumentCard key={d.id} doc={d} custom={customCategories} onPress={() => open(d)} />)
         )}
       </ScrollView>
     </SafeAreaView>
@@ -238,60 +282,73 @@ export default function Dashboard() {
 }
 
 const styles = StyleSheet.create({
-  topRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
-  searchBox: {
+  top: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  status: { flexDirection: 'row', alignItems: 'center', marginTop: 4, alignSelf: 'flex-start' },
+  search: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 48,
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
   },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    backgroundColor: colors.primarySoft,
-    maxWidth: '100%',
-  },
-  dot: { width: 7, height: 7, borderRadius: 4, marginEnd: 6 },
-  hero: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radius.xl,
-    padding: spacing.xl,
+  cardTop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 170,
+    borderRadius: 18,
+    padding: 18,
+    justifyContent: 'space-between',
     overflow: 'hidden',
     ...shadow,
   },
-  heroIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  expiryPill: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    backgroundColor: colors.paper,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  importRow: { flexDirection: 'row', marginTop: spacing.md },
-  importBtn: {
-    flex: 1,
+  cardUnder: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: 150,
+    height: 74,
+    borderRadius: 16,
+    backgroundColor: colors.paper,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    height: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...shadow,
   },
+  emptyCard: {
+    marginTop: 22,
+    height: 150,
+    borderRadius: 18,
+    backgroundColor: colors.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  quick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  actions: { flexDirection: 'row', gap: 10, marginTop: spacing.lg },
+  action: { flex: 1, height: 92, borderRadius: 16, padding: 14, justifyContent: 'space-between' },
+  actionQuiet: { backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.borderStrong },
   alert: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -299,35 +356,13 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.md,
     backgroundColor: colors.warningSoft,
-    borderWidth: 1,
-    borderColor: colors.warning + '44',
   },
-  idGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.xs },
-  idCell: { width: '50%', padding: spacing.xs },
-  idTile: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-  },
-  infoCard: {
+  info: {
     flexDirection: 'row',
     marginTop: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
     backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
   },
-  catIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  recent: {
-    width: 140,
-    marginEnd: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-  },
+  listHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: spacing.xl, marginBottom: spacing.xs },
 });

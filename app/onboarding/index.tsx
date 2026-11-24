@@ -5,7 +5,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { CheckRow } from '../../src/components/Checkbox';
 import { BrandLogo, Button, FadeIn, Notice, Screen, type IconName } from '../../src/components/ui';
-import { colors, gradients, spacing, type } from '../../src/theme/theme';
+import { colors, gradients, spacing, type, fonts } from '../../src/theme/theme';
 import { useOnboarding } from './_layout';
 import { LANGUAGES, useI18n } from '../../src/i18n';
 
@@ -51,7 +51,7 @@ export default function Welcome() {
             style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.sm }}
           >
             <Ionicons name="language-outline" size={18} color={colors.primaryBright} />
-            <Text style={[type.caption, { color: colors.primaryBright, marginStart: 6, fontWeight: '600' }]}>
+            <Text style={[type.caption, { color: colors.primaryBright, marginStart: 6, fontFamily: fonts.semibold }]}>
               {LANGUAGES.find((l) => l.code === lang)?.name}
             </Text>
           </Pressable>

@@ -293,7 +293,7 @@ const ar: Dict = {
   "ID number": "رقم الهوية",
   "Identity Documents": "وثائق الهوية",
   "If someone enters a wrong PIN 10 times in a row, the vault and all documents will be permanently destroyed. This protects against guessing, but also means a mistake can erase everything.": "إذا أدخل أحدهم رمز PIN خاطئًا 10 مرات متتالية، فستُدمَّر الخزنة وجميع المستندات نهائيًا. يحمي هذا من التخمين، لكن خطأً واحدًا قد يمحو كل شيء.",
-  "If you believe your data-protection rights have not been respected, you can complain to the data-protection authority of the country where you live (in Spain: Agencia Española de Protección de Datos, www.aepd.es).": "إذا رأيت أن حقوقك في حماية البيانات لم تُحترم، يمكنك تقديم شكوى إلى سلطة حماية البيانات في بلدك (في إسبانيا: Agencia Española de Protección de Datos، www.aepd.es).",
+  "If you believe your data privacy rights have been violated, you can file a complaint with the National Privacy Commission of the Philippines (www.privacy.gov.ph).": "إذا رأيت أن حقوقك في خصوصية البيانات قد انتُهكت، يمكنك تقديم شكوى إلى اللجنة الوطنية للخصوصية في الفلبين (www.privacy.gov.ph).",
   "Images and details are encrypted with AES-256-GCM on this device. Recognition ran on this phone; nothing was uploaded.": "تُشفَّر الصور والبيانات بخوارزمية AES-256-GCM على هذا الجهاز. جرى التعرّف على هذا الهاتف ولم يُرفع أي شيء.",
   "Immediately": "فورًا",
   "Import": "استيراد",

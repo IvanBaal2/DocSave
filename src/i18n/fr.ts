@@ -293,7 +293,7 @@ const fr: Dict = {
   "ID number": "Numéro d’identification",
   "Identity Documents": "Pièces d’identité",
   "If someone enters a wrong PIN 10 times in a row, the vault and all documents will be permanently destroyed. This protects against guessing, but also means a mistake can erase everything.": "Si quelqu’un saisit un code PIN erroné 10 fois de suite, le coffre et tous les documents seront définitivement détruits. Cela protège contre les tentatives de devinette, mais une erreur peut aussi tout effacer.",
-  "If you believe your data-protection rights have not been respected, you can complain to the data-protection authority of the country where you live (in Spain: Agencia Española de Protección de Datos, www.aepd.es).": "Si vous estimez que vos droits en matière de protection des données n’ont pas été respectés, vous pouvez saisir l’autorité de protection des données de votre pays (en Espagne : Agencia Española de Protección de Datos, www.aepd.es).",
+  "If you believe your data privacy rights have been violated, you can file a complaint with the National Privacy Commission of the Philippines (www.privacy.gov.ph).": "Si vous estimez que vos droits en matière de protection des données ont été violés, vous pouvez déposer une plainte auprès de la Commission nationale de la vie privée des Philippines (www.privacy.gov.ph).",
   "Images and details are encrypted with AES-256-GCM on this device. Recognition ran on this phone; nothing was uploaded.": "Les images et les informations sont chiffrées en AES-256-GCM sur cet appareil. La reconnaissance a eu lieu sur ce téléphone ; rien n’a été envoyé.",
   "Immediately": "Immédiatement",
   "Import": "Importer",

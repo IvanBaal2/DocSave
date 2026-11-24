@@ -43,7 +43,7 @@ export default function PrivacyRights() {
       </SettingsGroup>
       <Text style={[type.caption, { marginTop: spacing.sm }]}>
         {t(
-          'If you believe your data-protection rights have not been respected, you can complain to the data-protection authority of the country where you live (in Spain: Agencia Española de Protección de Datos, www.aepd.es).',
+          'If you believe your data privacy rights have been violated, you can file a complaint with the National Privacy Commission of the Philippines (www.privacy.gov.ph).',
         )}
       </Text>
     </Screen>

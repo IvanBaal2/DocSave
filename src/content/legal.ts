@@ -1,12 +1,11 @@
 /**
  * Legal texts shown in the app and on the website (scripts/build-legal-pages.mjs).
  *
- * STATUS: DRAFT — NOT LEGALLY REVIEWED. These texts describe the implemented
- * app accurately (see compliance/GDPR_ASSESSMENT.md), but they must be reviewed
- * by a lawyer qualified in Spanish / EU law before release, and every
- * "to be provided by the publisher" value must be supplied by the publisher.
- * Nothing here may be invented. Bump the version whenever the text changes:
- * the app records which version the user accepted and when.
+ * Publisher details as provided by the publisher (individual developer, Pili,
+ * Camarines Sur, Philippines). The texts describe the implemented app; they
+ * have not been reviewed by a lawyer (see compliance/RELEASE_DASHBOARD.md).
+ * Bump the version whenever the text changes: the app records which version
+ * the user accepted and when.
  */
 
 export type LegalSection = { heading: string; body: string[] };
@@ -18,35 +17,31 @@ export type LegalDocument = {
   sections: LegalSection[];
 };
 
-/** Placeholder for information only the publisher can provide. */
-const MISSING = (what: string) => `[${what} — to be provided by the publisher]`;
-
 export const PUBLISHER = 'Ivan Baal';
-export const PUBLISHER_STATUS = MISSING('legal status: individual developer, self-employed (autónomo) or company');
-export const ADDRESS = MISSING('postal address');
-export const COUNTRY = MISSING('country of establishment');
+export const PUBLISHER_STATUS = 'an individual developer';
+export const ADDRESS = 'Pili, Camarines Sur';
+export const COUNTRY = 'Philippines';
 export const CONTACT = 'u2648454771@id.gle';
-export const GOVERNING_LAW = MISSING('governing law and competent courts');
 export const WEBSITE = 'https://ivanbaal2.github.io/DocSave/docs/';
-const EFFECTIVE = MISSING('effective date (set on publication)');
+const UPDATED = '24 November 2026';
 
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
-  version: '2.0-draft',
-  updated: '19 November 2026',
-  status: 'draft',
+  version: '3.0',
+  updated: UPDATED,
+  status: 'final',
   sections: [
     {
       heading: '1. Who we are',
       body: [
-        `Docsave is published by ${PUBLISHER}, ${PUBLISHER_STATUS}, ${ADDRESS}, ${COUNTRY}.`,
-        `Privacy and support contact: ${CONTACT}. Website: ${WEBSITE}`,
+        `Docsave is published by ${PUBLISHER}, ${PUBLISHER_STATUS} based in ${ADDRESS}, ${COUNTRY}.`,
+        `Privacy and support contact: ${CONTACT}.`,
       ],
     },
     {
       heading: '2. What Docsave does',
       body: [
-        'Docsave is a personal app for keeping copies of your own documents (for example passports, ID cards, driving licences, tickets, certificates and cards) in an encrypted vault on your phone.',
+        'Docsave is an app for keeping copies of your documents (for example passports, ID cards, driving licences, work and student IDs, tickets, certificates and cards) in an encrypted vault on your phone.',
       ],
     },
     {
@@ -74,7 +69,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: '6. Camera',
       body: [
-        'The camera is used only when you choose to scan a document or read a barcode. While you scan, small preview images are analysed in the device memory to detect the document; temporary camera files are deleted immediately and the final image is encrypted before it is saved.',
+        'The camera is used only when you choose to scan a document or read a barcode. While you scan, small preview images are analysed in the device memory to detect the document; temporary camera files are deleted immediately and the final image is encrypted before it is saved. Pictures that do not contain a document are not saved.',
         'The camera may use the flash automatically for the final photo in low light.',
       ],
     },
@@ -120,13 +115,13 @@ export const PRIVACY: LegalDocument = {
       heading: '13. Diagnostics',
       body: [
         'Docsave contains no analytics or crash-reporting service. If the app closes unexpectedly, a technical error report is kept on your device and shown to you once; it is not sent anywhere.',
-        'If you turn on “Diagnostics sharing” (off by default), you can create a short technical report (app and system version, security-check results and number of documents — never document names or contents) and send it yourself through your phone’s share menu. If you send it to us, we process it as described in section 16.',
+        'If you turn on “Diagnostics sharing” (off by default), you can create a short technical report (app and system version, security-check results and number of documents, never document names or contents) and send it yourself through your phone’s share menu. If you send it to us, we process it as described in section 16.',
       ],
     },
     {
       heading: '14. Third-party components',
       body: [
-        'Docsave is built with open-source components (including React Native and Expo libraries and Mozilla pdf.js) and, on Android, the Google ML Kit text-recognition model. These components run inside the app on your device; Docsave does not give them your data and, on Android, the app cannot connect to the internet. A full list is published in the app’s software bill of materials.',
+        'Docsave is built with open-source components (including React Native and Expo libraries and Mozilla pdf.js) and, on Android, the Google ML Kit text-recognition model. These components run inside the app on your device; Docsave does not give them your data and, on Android, the app cannot connect to the internet.',
       ],
     },
     {
@@ -138,13 +133,15 @@ export const PRIVACY: LegalDocument = {
     {
       heading: '16. When you contact us',
       body: [
-        'If you email us (for support, a privacy request or a diagnostics report), we process your email address and the content of your message to answer you. Legal basis: our legitimate interest in answering your request and, where applicable, our legal obligations (GDPR art. 6(1)(f) and (c)).',
-        `We keep this correspondence only as long as needed to handle your request and any related legal obligation ${MISSING('retention period for support correspondence')}. Our email provider ${MISSING('email provider and transfer safeguards, if outside the EEA')} processes it on our behalf. Never send copies of your documents by email.`,
+        'If you email us (for support, a privacy request or a diagnostics report), we process your email address and the content of your message to answer you. Legal basis: our legitimate interest in answering your request and, where applicable, our legal obligations under the Data Privacy Act of 2012 (Republic Act No. 10173).',
+        'We delete this correspondence within 12 months after your request is closed, unless the law requires us to keep it longer. Our email provider (Google) processes it on our behalf. Never send copies of your documents by email.',
       ],
     },
     {
       heading: '17. International transfers',
-      body: ['The app itself does not transfer your information anywhere. Transfers can only occur for emails you send us, as described in section 16.'],
+      body: [
+        'The app itself does not transfer your information anywhere. Emails you send us are handled by our email provider (Google), which may store them on servers outside the Philippines.',
+      ],
     },
     {
       heading: '18. How long information is kept',
@@ -161,70 +158,77 @@ export const PRIVACY: LegalDocument = {
     {
       heading: '20. Your rights',
       body: [
-        'Under the GDPR you have rights of access, rectification, erasure, restriction, objection and portability. For information on your device, you exercise them directly in the app (Settings → Your privacy rights): view, edit, export and delete. For information you sent us by email, contact us and we will answer within one month.',
-        'You can complain to a data-protection authority, in Spain the Agencia Española de Protección de Datos (www.aepd.es).',
+        'Under the Data Privacy Act of 2012 (Republic Act No. 10173) you have the right to be informed, to access, to object, to correct, to erasure or blocking, to data portability, and to claim damages. For information on your device, you exercise these rights directly in the app (Settings → Your privacy rights): view, edit, export and delete. For information you sent us by email, contact us and we will answer within 30 days.',
+        'If you believe your data privacy rights have been violated, you can file a complaint with the National Privacy Commission of the Philippines (www.privacy.gov.ph).',
       ],
     },
     {
       heading: '21. Security limitations and incidents',
       body: [
         'No app can fully protect information on a device that is rooted, jailbroken or infected with malware, or against someone who knows your PIN. Docsave refuses to unlock when it detects signs of a rooted or jailbroken device, but detection is not guaranteed.',
-        'If we become aware of a security problem in Docsave, we will fix it, inform users through an app update and our website, and notify authorities where the law requires it.',
+        'If we become aware of a security problem in Docsave, we will fix it, inform users through an app update, and notify the National Privacy Commission and other authorities where the law requires it.',
       ],
     },
     {
       heading: '22. Children',
-      body: ['Docsave is not intended for use by children on their own. Parents or guardians may store documents of their children in their own vault.'],
+      body: [
+        'Docsave is intended for people aged 18 or older. Users under 18 may use Docsave only under the supervision of a parent or guardian. Parents or guardians may store documents of their children in their own vault.',
+      ],
     },
     {
       heading: '23. Changes to this policy',
-      body: ['If this policy changes, we will publish the new version on our website and describe the change in the app’s update notes. The version and date you accepted at setup are stored only on your device.'],
+      body: ['If this policy changes, we will publish the new version and describe the change in the app’s update notes. The version and date you accepted at setup are stored only on your device.'],
     },
     {
       heading: '24. Effective date and contact',
-      body: [`Effective date: ${EFFECTIVE}.`, `Contact: ${PUBLISHER}, ${CONTACT}.`],
+      body: [`Effective date: ${UPDATED}.`, `Contact: ${PUBLISHER}, ${CONTACT}.`],
     },
   ],
 };
 
 export const TERMS: LegalDocument = {
   title: 'Terms & Conditions',
-  version: '2.1-draft',
-  updated: '19 November 2026',
-  status: 'draft',
+  version: '3.0',
+  updated: UPDATED,
+  status: 'final',
   sections: [
     {
       heading: '1. Publisher',
-      body: [`Docsave is provided by ${PUBLISHER}, ${PUBLISHER_STATUS}, ${ADDRESS}, ${COUNTRY}. Contact: ${CONTACT}.`],
+      body: [`Docsave is provided by ${PUBLISHER}, ${PUBLISHER_STATUS} based in ${ADDRESS}, ${COUNTRY}. Contact: ${CONTACT}.`],
     },
     {
       heading: '2. What Docsave is',
       body: [
-        'Docsave is an app for keeping encrypted copies of your personal documents on your own device. Docsave is free; there are no paid features, subscriptions or advertising.',
+        'Docsave is an app for keeping encrypted copies of your documents on your own device. Docsave is free; there are no paid features, subscriptions or advertising.',
         'Docsave does not issue, verify, certify or replace any official document. A copy stored in Docsave is not an official document.',
       ],
     },
     {
       heading: '3. Who may use Docsave',
       body: [
-        `You must be an adult with legal capacity, or use Docsave under the supervision of a parent or guardian ${MISSING('minimum age, to be confirmed in legal review')}.`,
+        'Docsave is for individuals aged 18 or older, including students and employees, and for companies whose staff use it to keep their own work documents.',
+        'Users under 18 may use Docsave only under the supervision of a parent or guardian, who is responsible for that use.',
       ],
     },
     {
       heading: '4. Permitted use',
-      body: ['You may use Docsave to store and view documents that you are entitled to possess and copy, including documents of family members you are responsible for.'],
+      body: [
+        'You may use Docsave to store and view documents that you are entitled to possess and copy, for example:',
+        'your own identity, travel and personal documents; documents of family members you are responsible for, such as your children; your student ID and school documents; your employee ID and work documents, as far as your employer allows you to keep a copy.',
+        'A company may let its staff use Docsave to keep their own work documents. Each vault stays on the person’s phone; Docsave does not offer central management or access to staff vaults.',
+      ],
     },
     {
       heading: '5. Prohibited use',
       body: [
-        'You must not use Docsave to forge, alter or misuse documents, to store documents you are not entitled to hold, to break the law, or to reverse-engineer or interfere with the app’s security beyond what the law allows.',
+        'You must not use Docsave to: forge, alter or misuse documents; store documents of other people without their permission or a legal right; collect documents of customers or employees on someone else’s behalf; impersonate anyone or commit fraud; break any law; or reverse-engineer or interfere with the app’s security beyond what the law allows.',
       ],
     },
     {
       heading: '6. Your responsibilities',
       body: [
         'Keep your PIN secret and choose one others cannot guess, protect your phone with a screen lock, keep your operating system up to date, and check details read automatically before relying on them.',
-        'Always keep separate copies or the originals of documents you may need for travel, emergencies or official procedures.',
+        'Always keep separate copies or the originals of documents you may need for travel, work, school, emergencies or official procedures.',
       ],
     },
     {
@@ -234,7 +238,7 @@ export const TERMS: LegalDocument = {
     {
       heading: '8. Intellectual property and licence',
       body: [
-        `Docsave, its name and design belong to ${PUBLISHER}. You receive a personal, non-exclusive, non-transferable licence to use the app. Open-source components remain subject to their own licences (see the software bill of materials).`,
+        `Docsave, its name and design belong to ${PUBLISHER}. You receive a personal, non-exclusive, non-transferable licence to use the app. Open-source components remain subject to their own licences.`,
       ],
     },
     {
@@ -277,7 +281,7 @@ export const TERMS: LegalDocument = {
     },
     {
       heading: '16. Acceptance of digital copies',
-      body: ['Whether a digital copy is accepted is decided by each authority, airline, employer or service provider. Docsave cannot guarantee acceptance.'],
+      body: ['Whether a digital copy is accepted is decided by each authority, airline, school, employer or service provider. Docsave cannot guarantee acceptance.'],
     },
     {
       heading: '17. Security vulnerabilities',
@@ -285,19 +289,17 @@ export const TERMS: LegalDocument = {
     },
     {
       heading: '18. Support and complaints',
-      body: [
-        `For support or complaints, write to ${CONTACT}. We will acknowledge your message and aim to respond within ${MISSING('response time commitment')}. Never send copies of your documents.`,
-      ],
+      body: [`For support or complaints, write to ${CONTACT}. We will acknowledge your message and aim to respond within 30 days. Never send copies of your documents.`],
     },
     {
       heading: '19. Your consumer rights',
-      body: ['Nothing in these Terms limits the rights you have as a consumer under the law of your country of residence.'],
+      body: ['Nothing in these Terms limits the rights you have as a consumer under the law of your country of residence, including the Consumer Act of the Philippines (Republic Act No. 7394).'],
     },
     {
       heading: '20. Liability',
       body: [
         'Docsave is provided free of charge. To the extent permitted by law, the publisher is not liable for indirect loss, loss of documents that results from the no-recovery design described in section 11, or refusals by third parties to accept digital copies.',
-        'Nothing in these Terms excludes or limits liability that cannot be excluded or limited by law, including liability for intent or gross negligence and for death or personal injury caused by negligence.',
+        'Nothing in these Terms excludes or limits liability that cannot be excluded or limited by law, including liability for fraud, intent or gross negligence, and for death or personal injury caused by negligence.',
       ],
     },
     {
@@ -306,17 +308,17 @@ export const TERMS: LegalDocument = {
     },
     {
       heading: '22. Changes to these Terms',
-      body: ['If these Terms change, we will publish the new version on our website and describe the change in the app’s update notes. The version and date you accepted at setup are stored only on your device.'],
+      body: ['If these Terms change, we will publish the new version and describe the change in the app’s update notes. The version and date you accepted at setup are stored only on your device.'],
     },
     {
       heading: '23. Governing law and disputes',
       body: [
-        `${GOVERNING_LAW}. If you are a consumer, you also benefit from the mandatory protections of the law of your country of residence and may bring proceedings in the courts of that country.`,
+        `These Terms are governed by the laws of the Republic of the ${COUNTRY}. Disputes will be settled by the competent courts of the ${COUNTRY}. If you are a consumer living in another country, you also keep the mandatory protections of the law of your country of residence and may bring proceedings in the courts of that country.`,
       ],
     },
     {
       heading: '24. Contact',
-      body: [`${PUBLISHER} — ${CONTACT}`],
+      body: [`${PUBLISHER}, ${ADDRESS}, ${COUNTRY}. Email: ${CONTACT}.`],
     },
   ],
 };

@@ -10,10 +10,10 @@ Status key: **DONE**: implemented and evidenced in this repository · **PARTIAL*
 
 | # | Area | Status | Evidence / what is open |
 |---|---|---|---|
-| 1 | Legal identity of publisher | **OWNER** | Name only ("Ivan Baal"). Legal status, address, country, governing law and effective date are missing. |
+| 1 | Legal identity of publisher | **PARTIAL** | Provided 24 Nov 2026: Ivan Baal, individual developer, Pili, Camarines Sur, Philippines. Postal code and street address still missing (Play may ask for a full address). |
 | 2 | GDPR / LOPDGDD assessment, DPIA screening | **PARTIAL** | [GDPR_ASSESSMENT.md](GDPR_ASSESSMENT.md) is an engineering assessment, not legal advice. Lawyer confirmation needed. |
-| 3 | Privacy Policy | **PARTIAL** | Rewritten (v2.0-draft, 24 sections) to match the code. Marked DRAFT; placeholders remain; not legally reviewed. |
-| 4 | Terms & Conditions | **PARTIAL** | Rewritten (v2.0-draft). Governing law, minimum age and response time are placeholders. |
+| 3 | Privacy Policy | **PARTIAL** | v3.0 (24 Nov 2026), draft label removed by the publisher; Philippine Data Privacy Act and National Privacy Commission. Not reviewed by a lawyer. |
+| 4 | Terms & Conditions | **PARTIAL** | v3.0 (24 Nov 2026), draft label removed by the publisher; users 18+ (under 18 with parent or guardian), Philippine law. Not reviewed by a lawyer. |
 | 5 | Explicit acceptance at setup, version and date recorded | **DONE** | `app/onboarding/index.tsx` (both boxes required). `termsVersion`, `privacyVersion` and `acceptedAt` are stored at vault creation.  Open: no in-app re-acceptance prompt for existing users when the texts change. |
 | 6 | No-recovery warning before vault creation | **DONE** | Welcome screen notice plus a required acknowledgement. |
 | 7 | User rights (access, correct, delete, export, withdraw, contact) | **DONE** | `app/(vault)/settings/rights.tsx`, document Export (`src/security/exporter.ts`), Edit, Delete all, Destroy vault. |
